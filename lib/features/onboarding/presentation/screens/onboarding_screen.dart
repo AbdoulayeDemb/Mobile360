@@ -21,14 +21,13 @@ class OnboardingScreen extends StatelessWidget {
             children: [
               const SizedBox(height: 16), // Marge du haut (SafeArea)
               // 1. Logo Alert'360 (Agrandissement pour fidélité)
-              Center(
-                child: Image.asset(
-                  // Chemin d'asset que tu as défini
-                  'assets/images/logo/logo_alert360.png',
 
-                  // Ajustement : Augmentation de la hauteur à 85px pour correspondre à la maquette
-                  height: 85,
-                  fit: BoxFit.contain, // Pour que le logo ne soit pas déformé
+              SizedBox(
+                width: 130, // 👈 Définissez la largeur souhaitée ici
+                height: 130, // 👈 Définissez la hauteur souhaitée ici
+                child: Image.asset(
+                  'assets/images/logo/logo_alert360.png',
+                  fit: BoxFit.contain,
                 ),
               ),
 
