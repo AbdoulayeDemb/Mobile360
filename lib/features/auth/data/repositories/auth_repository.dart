@@ -1,10 +1,15 @@
 import '../../../../core/errors/api_exception.dart';
 import '../../../../core/network/api_service.dart';
-import '../../../../core/storage/secure_storage_service.dart';
 import '../../../../shared/models/api_response.dart';
 import '../models/auth_response.dart';
+import '../services/auth_service.dart';
 
 class AuthRepository {
+  final AuthService _authService;
+
+  AuthRepository({AuthService? authService})
+    : _authService = authService ?? AuthService();
+
   Future<AuthResponse> login({
     required String telephone,
     required String motDePasse,
@@ -37,12 +42,14 @@ class AuthRepository {
 
     final auth = apiResponse.data!;
 
-    await SecureStorageService.saveToken(auth.token);
+    // Enregistrer le token JWT et l'identifiant utilisateur.
+    await _authService.saveSession(auth);
 
     return auth;
   }
 
   Future<void> logout() async {
-    await SecureStorageService.deleteToken();
+    // Supprimer les informations de session.
+    await _authService.clearSession();
   }
 }
