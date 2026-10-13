@@ -1,7 +1,6 @@
+import 'package:alert360_mobile/features/contenus_educatifs/presentation/screens/contenus_educatifs_test_page.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-
-import '../../features/auth/presentation/screens/auth_login_test_page.dart';
 
 final GoRouter appRouter = GoRouter(
   initialLocation: '/',
@@ -10,7 +9,7 @@ final GoRouter appRouter = GoRouter(
       path: '/',
       name: 'home',
       builder: (BuildContext context, GoRouterState state) {
-        return const AuthLoginTestPage();
+        return const ContenusEducatifsTestPage();
       },
     ),
   ],

@@ -8,12 +8,14 @@ class ActualiteRepository {
   ActualiteRepository({ActualiteService? service})
     : _service = service ?? ActualiteService();
 
+  /// Récupère toutes les actualités publiées.
   Future<List<Actualite>> getActualites() async {
     final response = await _service.getActualites();
 
     dynamic rawData = response;
 
-    // Accepte également une enveloppe APIResponse si nécessaire.
+    // Le contrôleur Spring Boot renvoie directement une liste.
+    // On accepte également une réponse enveloppée dans "data".
     if (response is Map<String, dynamic>) {
       if (response['success'] == false) {
         throw ApiException(
@@ -41,11 +43,13 @@ class ActualiteRepository {
     }).toList();
   }
 
+  /// Récupère une actualité à partir de son identifiant.
   Future<Actualite> getActualiteById(int idActualite) async {
     final response = await _service.getActualiteById(idActualite);
 
     dynamic rawData = response;
 
+    // Accepte une réponse directe ou une enveloppe contenant "data".
     if (response is Map<String, dynamic> && response.containsKey('data')) {
       if (response['success'] == false) {
         throw ApiException(
@@ -63,41 +67,5 @@ class ActualiteRepository {
     }
 
     return Actualite.fromJson(rawData);
-  }
-
-  Future<Actualite> publierActualite({
-    required Map<String, dynamic> data,
-  }) async {
-    final response = await _service.publierActualite(data: data);
-
-    if (response is! Map<String, dynamic>) {
-      throw const FormatException(
-        'Le format de l’actualité créée est invalide.',
-      );
-    }
-
-    return Actualite.fromJson(response);
-  }
-
-  Future<Actualite> modifierActualite({
-    required int idActualite,
-    required Map<String, dynamic> data,
-  }) async {
-    final response = await _service.modifierActualite(
-      idActualite: idActualite,
-      data: data,
-    );
-
-    if (response is! Map<String, dynamic>) {
-      throw const FormatException(
-        'Le format de l’actualité modifiée est invalide.',
-      );
-    }
-
-    return Actualite.fromJson(response);
-  }
-
-  Future<void> supprimerActualite(int idActualite) {
-    return _service.supprimerActualite(idActualite);
   }
 }

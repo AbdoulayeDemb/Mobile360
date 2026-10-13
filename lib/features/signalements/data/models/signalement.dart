@@ -1,28 +1,33 @@
 class Signalement {
-  final int? idSignalement;
+  final int idSignalement;
   final String? codeTrackingUnique;
-  final String? typeUrgence;
-  final String? statut;
+  final String typeUrgence;
+  final String statut;
   final String? description;
+
   final double? latitudeGPS;
   final double? longitudeGPS;
+
   final String? repereVisuel;
   final String? photoAvantUrl;
   final String? audioUrl;
   final DateTime? dateHeureAlerte;
+
   final int? citoyenId;
   final String? citoyenNomComplet;
+
   final int? categorieId;
   final String? categorieNom;
+
   final int? structureAssigneeId;
   final String? structureAssigneeNom;
   final int? agentAssigneId;
 
   const Signalement({
-    this.idSignalement,
+    required this.idSignalement,
     this.codeTrackingUnique,
-    this.typeUrgence,
-    this.statut,
+    required this.typeUrgence,
+    required this.statut,
     this.description,
     this.latitudeGPS,
     this.longitudeGPS,
@@ -41,10 +46,10 @@ class Signalement {
 
   factory Signalement.fromJson(Map<String, dynamic> json) {
     return Signalement(
-      idSignalement: (json['idSignalement'] as num?)?.toInt(),
+      idSignalement: (json['idSignalement'] as num).toInt(),
       codeTrackingUnique: json['codeTrackingUnique'] as String?,
-      typeUrgence: json['typeUrgence'] as String?,
-      statut: json['statut'] as String?,
+      typeUrgence: json['typeUrgence'] as String,
+      statut: json['statut'] as String,
       description: json['description'] as String?,
       latitudeGPS: (json['latitudeGPS'] as num?)?.toDouble(),
       longitudeGPS: (json['longitudeGPS'] as num?)?.toDouble(),
