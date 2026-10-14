@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:alert360_mobile/features/signalements/data/services/signalement_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
@@ -50,7 +51,6 @@ class _ProblemDetailsScreenState extends ConsumerState<ProblemDetailsScreen> {
   Position? _position;
 
   File? _photoFile;
-  File? _videoFile;
   String? _audioPath;
 
   bool _isLoadingLocation = true;
@@ -58,7 +58,6 @@ class _ProblemDetailsScreenState extends ConsumerState<ProblemDetailsScreen> {
   bool _isRecording = false;
   bool _isPlayingAudio = false;
   bool _isTakingPhoto = false;
-  bool _isRecordingVideoFile = false;
 
   String? _locationError;
   String? _quartier;
@@ -106,17 +105,28 @@ class _ProblemDetailsScreenState extends ConsumerState<ProblemDetailsScreen> {
     }
   }
 
+  void _showMessage(String message) {
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(
+            message,
+            style: const TextStyle(fontFamily: 'Inter', fontSize: 13),
+          ),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: AppColors.darkBlue,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+  }
+
   // Supprimer la photo sélectionnée
   void _supprimerPhoto() {
     setState(() {
       _photoFile = null;
-    });
-  }
-
-  // Supprimer la vidéo sélectionnée
-  void _supprimerVideo() {
-    setState(() {
-      _videoFile = null;
     });
   }
 
@@ -158,7 +168,7 @@ class _ProblemDetailsScreenState extends ConsumerState<ProblemDetailsScreen> {
   // ============================================================
 
   Future<void> _prendrePhoto() async {
-    if (_isSubmitting || _isTakingPhoto || _isRecordingVideoFile) return;
+    if (_isSubmitting || _isTakingPhoto) return;
 
     setState(() => _isTakingPhoto = true);
 
@@ -195,40 +205,6 @@ class _ProblemDetailsScreenState extends ConsumerState<ProblemDetailsScreen> {
   // VIDÉO : OUVRIR DIRECTEMENT LA CAMÉRA, LIMITE DE 30 SECONDES
   // ============================================================
 
-  Future<void> _enregistrerVideo() async {
-    if (_isSubmitting || _isTakingPhoto || _isRecordingVideoFile) return;
-
-    setState(() => _isRecordingVideoFile = true);
-
-    try {
-      final XFile? video = await _imagePicker.pickVideo(
-        source: ImageSource.camera,
-        preferredCameraDevice: CameraDevice.rear,
-        maxDuration: const Duration(seconds: 30),
-      );
-
-      if (!mounted) return;
-
-      if (video != null) {
-        setState(() {
-          _videoFile = File(video.path);
-        });
-      }
-    } catch (e) {
-      debugPrint('Erreur vidéo : $e');
-
-      if (mounted) {
-        _showMessage(
-          'Impossible d’ouvrir la caméra vidéo. Vérifiez les autorisations.',
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isRecordingVideoFile = false);
-      }
-    }
-  }
-
   // ============================================================
   // NOTE VOCALE : ENREGISTRER, ÉCOUTER, SUPPRIMER
   // ============================================================
@@ -238,6 +214,7 @@ class _ProblemDetailsScreenState extends ConsumerState<ProblemDetailsScreen> {
 
     try {
       final autorise = await _audioRecorder.hasPermission();
+      if (!mounted) return;
 
       if (!autorise) {
         _showMessage('Autorisez l’accès au microphone dans les paramètres.');
@@ -621,9 +598,42 @@ class _ProblemDetailsScreenState extends ConsumerState<ProblemDetailsScreen> {
     setState(() => _isSubmitting = true);
 
     try {
-      // IMPORTANT :
-      // Les médias sont actuellement capturés localement.
-      // Ils ne sont pas encore téléversés vers le backend.
+      final signalementService = SignalementService();
+
+      String? photoAvantUrl;
+      String? audioUrl;
+
+      // 1. Téléverser la photo si elle existe.
+      if (_photoFile != null) {
+        if (mounted) {
+          _showMessage('Téléversement de la photo...');
+        }
+
+        photoAvantUrl = await signalementService.televerserMedia(
+          fichier: _photoFile!,
+          endpoint: '/api/medias/photo',
+        );
+      }
+
+      // 2. Téléverser la note vocale si elle existe.
+      if (_audioPath != null) {
+        final audioFile = File(_audioPath!);
+
+        if (await audioFile.exists()) {
+          if (mounted) {
+            _showMessage('Téléversement de la note vocale...');
+          }
+
+          audioUrl = await signalementService.televerserMedia(
+            fichier: audioFile,
+            endpoint: '/api/medias/audio',
+          );
+        } else {
+          throw Exception('Le fichier de la note vocale est introuvable.');
+        }
+      }
+
+      // 3. Construire la requête avec les URL des médias.
       final request = SignalementRequest(
         typeUrgence: _selectedUrgence,
         description: description.isEmpty
@@ -633,8 +643,11 @@ class _ProblemDetailsScreenState extends ConsumerState<ProblemDetailsScreen> {
         longitudeGPS: _position!.longitude,
         citoyenId: auth.idUtilisateur!,
         categorieId: widget.categoryId,
+        photoAvantUrl: photoAvantUrl,
+        audioUrl: audioUrl,
       );
 
+      // 4. Envoyer le signalement au backend.
       await ref.read(signalementRepositoryProvider).creerSignalement(request);
 
       if (!mounted) return;
@@ -646,26 +659,21 @@ class _ProblemDetailsScreenState extends ConsumerState<ProblemDetailsScreen> {
       } else {
         Navigator.of(context).pop();
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
       debugPrint('Erreur lors du signalement : $e');
+      debugPrintStack(stackTrace: stackTrace);
 
       if (!mounted) return;
 
       _showMessage(
-        'Impossible d’envoyer le signalement. '
-        'Vérifiez votre connexion puis réessayez.',
+        'Échec de l’envoi du signalement : '
+        '${e.toString().replaceFirst('Exception: ', '')}',
       );
     } finally {
       if (mounted) {
         setState(() => _isSubmitting = false);
       }
     }
-  }
-
-  void _showMessage(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
-    );
   }
 
   // ============================================================
@@ -687,45 +695,6 @@ class _ProblemDetailsScreenState extends ConsumerState<ProblemDetailsScreen> {
       ),
       titre: 'Photo capturée',
       onDelete: _supprimerPhoto,
-    );
-  }
-
-  Widget _construireApercuVideo() {
-    if (_videoFile == null) return const SizedBox.shrink();
-
-    return _apercuMedia(
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: const Color(0xFFEFF6FF),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Row(
-          children: [
-            const Icon(
-              Icons.video_file_rounded,
-              size: 40,
-              color: AppColors.primaryBlue,
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                'Vidéo enregistrée\n${_videoFile!.path.split(Platform.pathSeparator).last}',
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontFamily: 'Inter',
-                  fontSize: 12,
-                  color: AppColors.darkBlue,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-      titre: 'Vidéo capturée',
-      onDelete: _supprimerVideo,
     );
   }
 
@@ -974,22 +943,10 @@ class _ProblemDetailsScreenState extends ConsumerState<ProblemDetailsScreen> {
                             onTap: _prendrePhoto,
                           ),
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: _MediaPickerBox(
-                            assetPath: 'assets/images/icons/video_icon.png',
-                            label: _videoFile == null
-                                ? 'Enregistrer une vidéo (30 s max.)'
-                                : 'Reprendre la vidéo',
-                            isLoading: _isRecordingVideoFile,
-                            onTap: _enregistrerVideo,
-                          ),
-                        ),
                       ],
                     ),
 
                     _construireApercuPhoto(),
-                    _construireApercuVideo(),
 
                     const SizedBox(height: 20),
 
