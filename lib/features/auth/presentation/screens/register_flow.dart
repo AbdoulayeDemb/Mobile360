@@ -41,20 +41,178 @@ class _RegisterFlowState extends ConsumerState<RegisterFlow> {
     super.dispose();
   }
 
-  void _showMessage(String message, {bool isError = false}) {
-    if (!mounted) return;
+  // PopUp / Modal centré pour les messages
+  void _showSuccessPopUp({
+    required String title,
+    required String message,
+    required VoidCallback onConfirm,
+  }) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20.0),
+          ),
+          elevation: 5,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 24.0,
+              vertical: 28.0,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Icône de succès dans un cercle bleu clair
+                Container(
+                  height: 64,
+                  width: 64,
+                  decoration: BoxDecoration(
+                    color: AppColors.primaryBlue.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.check_circle_rounded,
+                    color: AppColors.primaryBlue,
+                    size: 40,
+                  ),
+                ),
+                const SizedBox(height: 20),
 
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text(message),
-          backgroundColor: isError
-              ? Colors.red.shade700
-              : Colors.green.shade700,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+                // Titre du PopUp
+                Text(
+                  title,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontFamily: 'Poppins',
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.darkBlue,
+                  ),
+                ),
+                const SizedBox(height: 12),
+
+                // Message centré
+                Text(
+                  message,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 14,
+                    height: 1.4,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: 24),
+
+                // Bouton d'action
+                SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.of(context).pop(); // Ferme le dialogue
+                      onConfirm(); // Redirige vers la connexion
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primaryBlue,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      elevation: 0,
+                    ),
+                    child: const Text(
+                      'Se connecter',
+                      style: TextStyle(
+                        fontFamily: 'Inter',
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  // PopUp d'erreur centré
+  void _showErrorPopUp(String message) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20.0),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 24.0,
+              vertical: 24.0,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  height: 56,
+                  width: 56,
+                  decoration: BoxDecoration(
+                    color: Colors.red.shade50,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.error_outline_rounded,
+                    color: Colors.red.shade600,
+                    size: 36,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Erreur',
+                  style: TextStyle(
+                    fontFamily: 'Poppins',
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.darkBlue,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  message,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 14,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                SizedBox(
+                  width: double.infinity,
+                  height: 44,
+                  child: TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text(
+                      'Compris',
+                      style: TextStyle(
+                        fontFamily: 'Inter',
+                        color: AppColors.primaryBlue,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
   String? _requiredValidator(String? value, String label) {
@@ -66,28 +224,21 @@ class _RegisterFlowState extends ConsumerState<RegisterFlow> {
 
   String? _phoneValidator(String? value) {
     final phone = value?.trim() ?? '';
-
     if (phone.isEmpty) {
       return 'Le numéro de téléphone est obligatoire.';
     }
-
     if (!RegExp(r'^[0-9]{8,15}$').hasMatch(phone)) {
-      return 'Entrez un numéro composé de 8 à 15 chiffres.';
+      return 'Veuillez entrer un numéro de téléphone valide.';
     }
-
     return null;
   }
 
   String? _emailValidator(String? value) {
     final email = value?.trim() ?? '';
-
-    // L'email est facultatif dans le DTO backend.
     if (email.isEmpty) return null;
-
     if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(email)) {
-      return 'Entrez une adresse email valide.';
+      return 'Veuillez entrer une adresse email valide.';
     }
-
     return null;
   }
 
@@ -121,41 +272,46 @@ class _RegisterFlowState extends ConsumerState<RegisterFlow> {
       );
 
       final repository = ref.read(authRepositoryProvider);
-
       final response = await repository.register(request: request);
 
       if (!mounted) return;
 
-      // Le compte créé doit être un compte citoyen.
-      if (response.role?.toUpperCase() != 'CITOYEN') {
-        _showMessage(
-          'Le serveur n’a pas confirmé la création du compte citoyen.',
-          isError: true,
-        );
-        return;
-      }
-
-      _showMessage(
-        'Inscription réussie ! Vous pouvez maintenant vous connecter.',
+      // Succès standard via la réponse
+      _showSuccessPopUp(
+        title: 'Compte créé avec succès !',
+        message: 'Votre compte a été créé avec succès, veuillez vous connecter pour pouvoir accéder à votre compte.',
+        onConfirm: () {
+          widget.onFinish?.call();
+        },
       );
-
-      widget.onFinish?.call();
     } catch (error) {
       if (!mounted) return;
 
       var message = error.toString();
-
-      // Évite d'afficher le préfixe technique de certaines exceptions.
       if (message.startsWith('Exception: ')) {
         message = message.substring('Exception: '.length);
       }
 
-      _showMessage(
-        message.isEmpty
-            ? 'Une erreur est survenue pendant l’inscription.'
-            : message,
-        isError: true,
-      );
+      // VÉRIFICATION : Si le message du backend indique que la création est réussie
+      final lowerMsg = message.toLowerCase();
+      if (lowerMsg.contains('succès') ||
+          lowerMsg.contains('créé avec succès') ||
+          lowerMsg.contains('citoyen créé')) {
+        _showSuccessPopUp(
+          title: 'Compte créé avec succès !',
+          message: 'Votre compte a été créé avec succès, veuillez vous connecter pour pouvoir accéder à votre compte.',
+          onConfirm: () {
+            widget.onFinish?.call();
+          },
+        );
+      } else {
+        // Vraie erreur backend
+        _showErrorPopUp(
+          message.isEmpty
+              ? 'Une erreur est survenue pendant l’inscription.'
+              : message,
+        );
+      }
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
@@ -445,205 +601,258 @@ class _RegisterFlowState extends ConsumerState<RegisterFlow> {
     String? Function(String?)? validator,
     TextCapitalization textCapitalization = TextCapitalization.none,
   }) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-        border: Border.all(color: const Color(0xFFE2E8F0), width: 1),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const SizedBox(width: 16),
-          Padding(
-            padding: const EdgeInsets.only(top: 17),
-            child: Icon(icon, color: AppColors.darkBlue, size: 20),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: TextFormField(
-              controller: controller,
-              keyboardType: keyboardType,
-              textCapitalization: textCapitalization,
-              validator: validator,
-              autovalidateMode: AutovalidateMode.onUserInteraction,
-              style: const TextStyle(
-                fontFamily: 'Inter',
-                fontSize: 15,
-                color: AppColors.darkBlue,
+    return FormField<String>(
+      validator: validator,
+      autovalidateMode: AutovalidateMode.onUserInteraction,
+      builder: (FormFieldState<String> state) {
+        final hasError = state.hasError;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              height: 56,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.03),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+                border: Border.all(color: const Color(0xFFE2E8F0), width: 1),
               ),
-              decoration: InputDecoration(
-                hintText: hintText,
-                hintStyle: const TextStyle(
-                  fontFamily: 'Inter',
-                  color: Color(0xFF94A3B8),
-                  fontSize: 14,
-                ),
-                border: InputBorder.none,
-                contentPadding: const EdgeInsets.symmetric(vertical: 18),
-                errorStyle: const TextStyle(fontSize: 11),
+              child: Row(
+                children: [
+                  const SizedBox(width: 16),
+                  Icon(icon, color: AppColors.darkBlue, size: 20),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: TextField(
+                      controller: controller,
+                      keyboardType: keyboardType,
+                      textCapitalization: textCapitalization,
+                      style: const TextStyle(
+                        fontFamily: 'Inter',
+                        fontSize: 15,
+                        color: AppColors.darkBlue,
+                      ),
+                      onChanged: (val) => state.didChange(val),
+                      decoration: InputDecoration(
+                        hintText: hintText,
+                        hintStyle: const TextStyle(
+                          fontFamily: 'Inter',
+                          color: Color(0xFF94A3B8),
+                          fontSize: 14,
+                        ),
+                        border: InputBorder.none,
+                        isDense: true,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                ],
               ),
             ),
-          ),
-          const SizedBox(width: 16),
-        ],
-      ),
+            if (hasError)
+              Padding(
+                padding: const EdgeInsets.only(top: 6.0, left: 4.0),
+                child: Text(
+                  state.errorText!,
+                  style: const TextStyle(
+                    fontFamily: 'Inter',
+                    color: Color(0xFFE53E3E),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w400,
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
     );
   }
 
   Widget _buildPhoneInputField() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-        border: Border.all(color: const Color(0xFFE2E8F0), width: 1),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const SizedBox(width: 16),
-          const Padding(
-            padding: EdgeInsets.only(top: 17),
-            child: Text('🇲🇱', style: TextStyle(fontSize: 22)),
-          ),
-          const SizedBox(width: 8),
-          const Padding(
-            padding: EdgeInsets.only(top: 20),
-            child: Text(
-              '+223',
-              style: TextStyle(
-                fontFamily: 'Inter',
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
-                color: AppColors.darkBlue,
+    return FormField<String>(
+      validator: _phoneValidator,
+      autovalidateMode: AutovalidateMode.onUserInteraction,
+      builder: (FormFieldState<String> state) {
+        final hasError = state.hasError;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              height: 56,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.03),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+                border: Border.all(color: const Color(0xFFE2E8F0), width: 1),
+              ),
+              child: Row(
+                children: [
+                  const SizedBox(width: 16),
+                  const Text('🇲🇱', style: TextStyle(fontSize: 22)),
+                  const SizedBox(width: 8),
+                  const Text(
+                    '+223',
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.darkBlue,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Container(
+                    height: 24,
+                    width: 1,
+                    color: const Color(0xFFCBD5E1),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: TextField(
+                      controller: _phoneController,
+                      keyboardType: TextInputType.phone,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                        LengthLimitingTextInputFormatter(15),
+                      ],
+                      style: const TextStyle(
+                        fontFamily: 'Inter',
+                        fontSize: 15,
+                        color: AppColors.darkBlue,
+                      ),
+                      onChanged: (val) => state.didChange(val),
+                      decoration: const InputDecoration(
+                        hintText: 'Votre numéro de téléphone',
+                        hintStyle: TextStyle(
+                          fontFamily: 'Inter',
+                          color: Color(0xFF94A3B8),
+                          fontSize: 14,
+                        ),
+                        border: InputBorder.none,
+                        isDense: true,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                ],
               ),
             ),
-          ),
-          const SizedBox(width: 12),
-          Padding(
-            padding: const EdgeInsets.only(top: 16),
-            child: Container(
-              height: 24,
-              width: 1,
-              color: const Color(0xFFCBD5E1),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: TextFormField(
-              controller: _phoneController,
-              keyboardType: TextInputType.phone,
-              inputFormatters: [
-                FilteringTextInputFormatter.digitsOnly,
-                LengthLimitingTextInputFormatter(15),
-              ],
-              validator: _phoneValidator,
-              autovalidateMode: AutovalidateMode.onUserInteraction,
-              style: const TextStyle(
-                fontFamily: 'Inter',
-                fontSize: 15,
-                color: AppColors.darkBlue,
-              ),
-              decoration: const InputDecoration(
-                hintText: 'Votre numéro de téléphone',
-                hintStyle: TextStyle(
-                  fontFamily: 'Inter',
-                  color: Color(0xFF94A3B8),
-                  fontSize: 13,
+            if (hasError)
+              Padding(
+                padding: const EdgeInsets.only(top: 6.0, left: 4.0),
+                child: Text(
+                  state.errorText!,
+                  style: const TextStyle(
+                    fontFamily: 'Inter',
+                    color: Color(0xFFE53E3E),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w400,
+                  ),
                 ),
-                border: InputBorder.none,
-                contentPadding: EdgeInsets.symmetric(vertical: 20),
-                errorStyle: TextStyle(fontSize: 11),
               ),
-            ),
-          ),
-          const SizedBox(width: 12),
-        ],
-      ),
+          ],
+        );
+      },
     );
   }
 
   Widget _buildPasswordInputField() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-        border: Border.all(color: const Color(0xFFE2E8F0), width: 1),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const SizedBox(width: 16),
-          const Padding(
-            padding: EdgeInsets.only(top: 17),
-            child: Icon(
-              Icons.lock_outline,
-              color: AppColors.darkBlue,
-              size: 20,
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: TextFormField(
-              controller: _passwordController,
-              obscureText: _obscurePassword,
-              validator: (value) =>
-                  _requiredValidator(value, 'Le mot de passe'),
-              autovalidateMode: AutovalidateMode.onUserInteraction,
-              style: const TextStyle(
-                fontFamily: 'Inter',
-                fontSize: 15,
-                color: AppColors.darkBlue,
+    return FormField<String>(
+      validator: (val) => _requiredValidator(val, 'Le mot de passe'),
+      autovalidateMode: AutovalidateMode.onUserInteraction,
+      builder: (FormFieldState<String> state) {
+        final hasError = state.hasError;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              height: 56,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.03),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+                border: Border.all(color: const Color(0xFFE2E8F0), width: 1),
               ),
-              decoration: const InputDecoration(
-                hintText: 'Entrez votre mot de passe',
-                hintStyle: TextStyle(
-                  fontFamily: 'Inter',
-                  color: Color(0xFF94A3B8),
-                  fontSize: 14,
+              child: Row(
+                children: [
+                  const SizedBox(width: 16),
+                  const Icon(
+                    Icons.lock_outline,
+                    color: AppColors.darkBlue,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: TextField(
+                      controller: _passwordController,
+                      obscureText: _obscurePassword,
+                      style: const TextStyle(
+                        fontFamily: 'Inter',
+                        fontSize: 15,
+                        color: AppColors.darkBlue,
+                      ),
+                      onChanged: (val) => state.didChange(val),
+                      decoration: const InputDecoration(
+                        hintText: 'Entrez votre mot de passe',
+                        hintStyle: TextStyle(
+                          fontFamily: 'Inter',
+                          color: Color(0xFF94A3B8),
+                          fontSize: 14,
+                        ),
+                        border: InputBorder.none,
+                        isDense: true,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    icon: Icon(
+                      _obscurePassword
+                          ? Icons.visibility_off_outlined
+                          : Icons.visibility_outlined,
+                      color: const Color(0xFF94A3B8),
+                      size: 20,
+                    ),
+                    onPressed: () {
+                      setState(() => _obscurePassword = !_obscurePassword);
+                    },
+                  ),
+                  const SizedBox(width: 8),
+                ],
+              ),
+            ),
+            if (hasError)
+              Padding(
+                padding: const EdgeInsets.only(top: 6.0, left: 4.0),
+                child: Text(
+                  state.errorText!,
+                  style: const TextStyle(
+                    fontFamily: 'Inter',
+                    color: Color(0xFFE53E3E),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w400,
+                  ),
                 ),
-                border: InputBorder.none,
-                contentPadding: EdgeInsets.symmetric(vertical: 18),
-                errorStyle: TextStyle(fontSize: 11),
               ),
-            ),
-          ),
-          IconButton(
-            icon: Icon(
-              _obscurePassword
-                  ? Icons.visibility_off_outlined
-                  : Icons.visibility_outlined,
-              color: const Color(0xFF94A3B8),
-              size: 20,
-            ),
-            onPressed: () {
-              setState(() => _obscurePassword = !_obscurePassword);
-            },
-          ),
-          const SizedBox(width: 8),
-        ],
-      ),
+          ],
+        );
+      },
     );
   }
 }

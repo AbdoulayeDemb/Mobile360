@@ -1,6 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
+<key>NSCameraUsageDescription</key>
+<string>Alert360 utilise la caméra pour photographier et filmer les incidents signalés.</string>
+
+<key>NSMicrophoneUsageDescription</key>
+<string>Alert360 utilise le microphone pour enregistrer une note vocale décrivant l'incident.</string>
+
+<key>NSLocationWhenInUseUsageDescription</key>
+<string>Alert360 utilise votre position pour localiser l'incident signalé.</string>
 <dict>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>

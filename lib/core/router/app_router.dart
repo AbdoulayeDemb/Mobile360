@@ -1,6 +1,10 @@
 import 'package:alert360_mobile/features/onboarding/presentation/screens/onboarding_flow.dart';
 import 'package:alert360_mobile/features/auth/presentation/screens/login_screen.dart';
 import 'package:alert360_mobile/features/auth/presentation/screens/register_flow.dart';
+import 'package:alert360_mobile/features/accueil/presentation/screens/home_screen.dart';
+import 'package:alert360_mobile/features/signalements/presentation/screens/categories_selection_screen.dart';
+import 'package:alert360_mobile/features/signalements/presentation/screens/problem_details_screen.dart';
+import 'package:alert360_mobile/features/signalements/data/models/categorie.dart';
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -23,8 +27,7 @@ final GoRouter appRouter = GoRouter(
     final isLogin = currentLocation == '/login';
     final isRegister = currentLocation == '/register';
 
-    // L'utilisateur doit terminer l'onboarding avant d'accéder
-    // aux autres écrans.
+    // L'utilisateur doit terminer l'onboarding avant les autres écrans.
     if (!onboardingCompleted && !isOnboarding) {
       return '/';
     }
@@ -34,7 +37,7 @@ final GoRouter appRouter = GoRouter(
       return '/login';
     }
 
-    // Autoriser l'accès à la connexion et à l'inscription.
+    // Connexion et inscription restent accessibles.
     if (isLogin || isRegister) {
       return null;
     }
@@ -78,43 +81,69 @@ final GoRouter appRouter = GoRouter(
             context.go('/login');
           },
           onFinish: () {
+            // L'inscription ne connecte pas automatiquement le citoyen.
             context.go('/login');
           },
         );
       },
     ),
 
-    // ACCUEIL TEMPORAIRE
-    // À remplacer par le véritable écran d'accueil.
+    // ACCUEIL ALERT360
     GoRoute(
       path: '/home',
       name: 'home',
       builder: (BuildContext context, GoRouterState state) {
-        return const _PlaceholderScreen(
-          title: 'Accueil Alert360',
-          message: 'Connecté avec succès.',
+        return HomeScreen(
+          // Seule cette action lance le parcours de signalement.
+          onSignalProblem: () {
+            context.push('/categories');
+          },
+
+          // Ne pas définir onAllCategories ici :
+          // la section « Toutes les catégories » reste non cliquable.
+        );
+      },
+    ),
+
+    // SÉLECTION DES CATÉGORIES
+    GoRoute(
+      path: '/categories',
+      name: 'categories',
+      builder: (BuildContext context, GoRouterState state) {
+        return CategoriesSelectionScreen(
+          onBack: () {
+            context.pop();
+          },
+
+          // La catégorie sélectionnée est transmise à l'écran suivant.
+          onCategorySelected: (Categorie categorie) {
+            context.push('/problem-details', extra: categorie);
+          },
+        );
+      },
+    ),
+
+    // DÉTAILS DU PROBLÈME
+    GoRoute(
+      path: '/problem-details',
+      name: 'problem-details',
+      builder: (BuildContext context, GoRouterState state) {
+        final categorie = state.extra as Categorie;
+
+        return ProblemDetailsScreen(
+          categoryId: categorie.idCategorie,
+          categoryTitle: categorie.nom,
+
+          onBack: () {
+            context.pop();
+          },
+
+          onSubmitSignalement: () {
+            // Après l'envoi, revenir à l'accueil.
+            context.go('/home');
+          },
         );
       },
     ),
   ],
 );
-
-class _PlaceholderScreen extends StatelessWidget {
-  final String title;
-  final String message;
-
-  const _PlaceholderScreen({required this.title, required this.message});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text(title)),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Text(message, textAlign: TextAlign.center),
-        ),
-      ),
-    );
-  }
-}
