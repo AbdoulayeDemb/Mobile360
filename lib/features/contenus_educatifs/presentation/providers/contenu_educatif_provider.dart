@@ -1,4 +1,5 @@
-import 'package:alert360_mobile/features/contenus_educatifs/data/repositories/contenu_educatif_repository';
+
+import 'package:alert360_mobile/features/contenus_educatifs/data/repositories/contenu_educatif_repository.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/models/contenu_educatif.dart';
