@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:alert360_mobile/features/signalements/data/services/signalement_service.dart';
+import 'package:alert360_mobile/features/signalements/presentation/screens/signalement_confirmation_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
@@ -603,11 +604,9 @@ class _ProblemDetailsScreenState extends ConsumerState<ProblemDetailsScreen> {
       String? photoAvantUrl;
       String? audioUrl;
 
-      // 1. Téléverser la photo si elle existe.
+      // 1. Téléverser la photo.
       if (_photoFile != null) {
-        if (mounted) {
-          _showMessage('Téléversement de la photo...');
-        }
+        _showMessage('Téléversement de la photo...');
 
         photoAvantUrl = await signalementService.televerserMedia(
           fichier: _photoFile!,
@@ -615,25 +614,23 @@ class _ProblemDetailsScreenState extends ConsumerState<ProblemDetailsScreen> {
         );
       }
 
-      // 2. Téléverser la note vocale si elle existe.
+      // 2. Téléverser la note vocale.
       if (_audioPath != null) {
         final audioFile = File(_audioPath!);
 
-        if (await audioFile.exists()) {
-          if (mounted) {
-            _showMessage('Téléversement de la note vocale...');
-          }
-
-          audioUrl = await signalementService.televerserMedia(
-            fichier: audioFile,
-            endpoint: '/api/medias/audio',
-          );
-        } else {
+        if (!await audioFile.exists()) {
           throw Exception('Le fichier de la note vocale est introuvable.');
         }
+
+        _showMessage('Téléversement de la note vocale...');
+
+        audioUrl = await signalementService.televerserMedia(
+          fichier: audioFile,
+          endpoint: '/api/medias/audio',
+        );
       }
 
-      // 3. Construire la requête avec les URL des médias.
+      // 3. Préparer la requête.
       final request = SignalementRequest(
         typeUrgence: _selectedUrgence,
         description: description.isEmpty
@@ -647,18 +644,52 @@ class _ProblemDetailsScreenState extends ConsumerState<ProblemDetailsScreen> {
         audioUrl: audioUrl,
       );
 
-      // 4. Envoyer le signalement au backend.
-      await ref.read(signalementRepositoryProvider).creerSignalement(request);
+      // 4. Envoyer le signalement et récupérer la réponse du backend.
+      _showMessage('Envoi du signalement...');
+
+      final signalement = await ref
+          .read(signalementRepositoryProvider)
+          .creerSignalement(request);
 
       if (!mounted) return;
 
-      _showMessage('Votre signalement a été envoyé avec succès.');
+      // 5. Construire une localisation lisible.
+      final localisation = [_adresse, _quartier]
+          .whereType<String>()
+          .map((element) => element.trim())
+          .where((element) => element.isNotEmpty)
+          .toSet()
+          .join(', ');
 
-      if (widget.onSubmitSignalement != null) {
-        widget.onSubmitSignalement!();
-      } else {
-        Navigator.of(context).pop();
-      }
+      final localisationFinale = localisation.isNotEmpty
+          ? localisation
+          : '${_position!.latitude.toStringAsFixed(5)}, '
+                '${_position!.longitude.toStringAsFixed(5)}';
+
+      // 6. Préparer la référence réelle du signalement.
+      final reference =
+          signalement.codeTrackingUnique?.trim().isNotEmpty == true
+          ? signalement.codeTrackingUnique!
+          : 'ALT-${signalement.idSignalement}';
+
+      // 7. Ouvrir directement l'écran de confirmation.
+      // L'ancien écran est remplacé pour éviter de revenir
+      // au formulaire et de soumettre accidentellement deux fois.
+      await Navigator.of(context).pushReplacement(
+        MaterialPageRoute<void>(
+          builder: (context) => SignalementConfirmationScreen(
+            reference: reference,
+            categoryName: signalement.categorieNom ?? widget.categoryTitle,
+            locationName: localisationFinale,
+            structureName: signalement.structureAssigneeNom,
+            status: signalement.statut,
+          ),
+        ),
+      );
+
+      // Le callback n'est conservé que si ton écran parent
+      // en a encore besoin. Il n'est pas appelé automatiquement
+      // ici afin d'éviter une seconde navigation concurrente.
     } catch (e, stackTrace) {
       debugPrint('Erreur lors du signalement : $e');
       debugPrintStack(stackTrace: stackTrace);
