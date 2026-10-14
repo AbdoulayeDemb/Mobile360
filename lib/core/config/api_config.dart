@@ -2,7 +2,7 @@ class ApiConfig {
   ApiConfig._();
 
   /// Adresse par défaut pour le développement Web.
-  static const String _defaultBaseUrl = 'http://localhost:8080';
+  static const String _defaultBaseUrl = 'http://192.168.10.164:8080';
 
   /// Peut être remplacée au lancement avec --dart-define.
   static const String baseUrl = String.fromEnvironment(
