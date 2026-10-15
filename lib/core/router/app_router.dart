@@ -3,6 +3,7 @@ import 'package:alert360_mobile/features/auth/presentation/screens/login_screen.
 import 'package:alert360_mobile/features/auth/presentation/screens/register_flow.dart';
 import 'package:alert360_mobile/features/accueil/presentation/screens/home_screen.dart';
 import 'package:alert360_mobile/features/signalements/presentation/screens/categories_selection_screen.dart';
+import 'package:alert360_mobile/features/signalements/presentation/screens/mes_signalements_screen.dart';
 import 'package:alert360_mobile/features/signalements/presentation/screens/problem_details_screen.dart';
 import 'package:alert360_mobile/features/signalements/data/models/categorie.dart';
 
@@ -140,6 +141,19 @@ final GoRouter appRouter = GoRouter(
 
           onSubmitSignalement: () {
             // Après l'envoi, revenir à l'accueil.
+            context.go('/home');
+          },
+        );
+      },
+    ),
+
+    // MES SIGNALEMENTS
+    GoRoute(
+      path: '/mes-signalements',
+      name: 'mes-signalements',
+      builder: (BuildContext context, GoRouterState state) {
+        return MesSignalementsScreen(
+          onBack: () {
             context.go('/home');
           },
         );

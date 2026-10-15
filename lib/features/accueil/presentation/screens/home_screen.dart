@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
@@ -564,10 +565,16 @@ class HomeScreen extends ConsumerWidget {
                 onTap: onNavTap,
               ),
               _NavButton(
-                assetPath: 'assets/images/icons/list_icon.png', // Chemin de ton image Liste/Signalements
+                assetPath: 'assets/images/icons/list_icon.png',
                 index: 1,
                 currentIndex: currentNavIndex,
-                onTap: onNavTap,
+                onTap: (index) {
+                  if (index == 1) {
+                    context.push('/mes-signalements');
+                  } else {
+                    onNavTap?.call(index);
+                  }
+                },
               ),
               _NavButton(
                 assetPath: 'assets/images/icons/user_icon.png', // Chemin de ton image Profil

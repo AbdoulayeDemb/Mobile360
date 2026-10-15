@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:alert360_mobile/features/signalements/data/services/signalement_service.dart';
+import 'package:alert360_mobile/features/signalements/presentation/screens/mes_signalements_screen.dart';
 import 'package:alert360_mobile/features/signalements/presentation/screens/signalement_confirmation_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -677,12 +678,24 @@ class _ProblemDetailsScreenState extends ConsumerState<ProblemDetailsScreen> {
       // au formulaire et de soumettre accidentellement deux fois.
       await Navigator.of(context).pushReplacement(
         MaterialPageRoute<void>(
-          builder: (context) => SignalementConfirmationScreen(
+          builder: (confirmationContext) => SignalementConfirmationScreen(
             reference: reference,
             categoryName: signalement.categorieNom ?? widget.categoryTitle,
             locationName: localisationFinale,
             structureName: signalement.structureAssigneeNom,
             status: signalement.statut,
+
+            onBack: () {
+              Navigator.of(confirmationContext).maybePop();
+            },
+
+            onTrackSignalement: () {
+              Navigator.of(confirmationContext).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => const MesSignalementsScreen(),
+                ),
+              );
+            },
           ),
         ),
       );
