@@ -336,7 +336,7 @@ class _RegisterFlowState extends ConsumerState<RegisterFlow> {
                 Center(
                   child: Image.asset(
                     'assets/images/logo/logo_alert360.png',
-                    height: 75,
+                    height: 100,
                     fit: BoxFit.contain,
                   ),
                 ),

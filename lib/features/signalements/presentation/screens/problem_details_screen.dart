@@ -50,6 +50,8 @@ class _ProblemDetailsScreenState extends ConsumerState<ProblemDetailsScreen> {
   final AudioRecorder _audioRecorder = AudioRecorder();
   final AudioPlayer _audioPlayer = AudioPlayer();
 
+  static const int _maxAudioSeconds = 30;
+
   Position? _position;
 
   File? _photoFile;
@@ -271,8 +273,15 @@ class _ProblemDetailsScreenState extends ConsumerState<ProblemDetailsScreen> {
       });
 
       _recordingTimer?.cancel();
+
       _recordingTimer = Timer.periodic(const Duration(seconds: 1), (_) {
         if (!mounted || !_isRecording) return;
+
+        if (_recordingDuration.inSeconds >= _maxAudioSeconds - 1) {
+          _arreterEnregistrementAudio();
+          return;
+        }
+
         setState(() {
           _recordingDuration += const Duration(seconds: 1);
         });
@@ -1155,10 +1164,7 @@ class _ProblemDetailsScreenState extends ConsumerState<ProblemDetailsScreen> {
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                          color: AppColors.primaryBlue,
-                          width: 1.5,
-                        ),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
                         boxShadow: [
                           BoxShadow(
                             color: Colors.black.withValues(alpha: 0.02),
@@ -1242,57 +1248,137 @@ class _ProblemDetailsScreenState extends ConsumerState<ProblemDetailsScreen> {
                           ),
                         ],
                       ),
-                      child: Stack(
-                        children: [
-                          TextField(
-                            controller: _descriptionController,
-                            maxLines: 4,
-                            enabled: !_isSubmitting,
-                            style: const TextStyle(
-                              fontFamily: 'Inter',
-                              fontSize: 13.5,
-                              color: AppColors.darkBlue,
-                            ),
-                            decoration: const InputDecoration(
-                              hintText: "Précisez des détails utiles pour l'agent de terrain...",
-                              hintStyle: TextStyle(
-                                fontFamily: 'Inter',
-                                fontSize: 12.5,
-                                color: Color(0xFF94A3B8),
-                              ),
-                              border: InputBorder.none,
-                              isDense: true,
-                            ),
+                      child: TextField(
+                        controller: _descriptionController,
+                        maxLines: 4,
+                        enabled: !_isSubmitting,
+                        textInputAction: TextInputAction.newline,
+                        style: const TextStyle(
+                          fontFamily: 'Inter',
+                          fontSize: 13.5,
+                          color: AppColors.darkBlue,
+                        ),
+                        decoration: const InputDecoration(
+                          hintText: "Précisez des détails utiles pour l'agent de terrain...",
+                          hintStyle: TextStyle(
+                            fontFamily: 'Inter',
+                            fontSize: 12.5,
+                            color: Color(0xFF94A3B8),
                           ),
-                          Positioned(
-                            bottom: 0,
-                            right: 0,
-                            child: IconButton(
-                              tooltip: _isRecording
-                                  ? 'Arrêter l’enregistrement'
-                                  : 'Enregistrer une note vocale',
-                              onPressed: _isSubmitting
-                                  ? null
-                                  : (_isRecording
-                                        ? _arreterEnregistrementAudio
-                                        : _demarrerEnregistrementAudio),
-                              icon: Icon(
-                                _isRecording
-                                    ? Icons.stop_circle_rounded
-                                    : Icons.mic_rounded,
-                                color: _isRecording
-                                    ? Colors.red
-                                    : AppColors.darkBlue,
-                                size: 22,
-                              ),
-                            ),
-                          ),
-                        ],
+                          border: InputBorder.none,
+                          isDense: true,
+                        ),
                       ),
                     ),
-                    _construireApercuAudio(),
 
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 20),
+
+                    const Text(
+                      '5. Audio (Max 30s)',
+                      style: TextStyle(
+                        fontFamily: 'Poppins',
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.darkBlue,
+                      ),
+                    ),
+
+                    const SizedBox(height: 10),
+
+                    InkWell(
+                      onTap: _isSubmitting
+                          ? null
+                          : (_isRecording
+                                ? _arreterEnregistrementAudio
+                                : _demarrerEnregistrementAudio),
+                      borderRadius: BorderRadius.circular(16),
+                      child: Container(
+                        width: double.infinity,
+                        constraints: const BoxConstraints(minHeight: 60),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 12,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: _isRecording
+                                ? Colors.red.shade300
+                                : const Color(0xFFE2E8F0),
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.02),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              _isRecording
+                                  ? Icons.stop_circle_rounded
+                                  : Icons.mic_none_rounded,
+                              color: _isRecording
+                                  ? Colors.red
+                                  : const Color(0xFF64748B),
+                              size: 24,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Text(
+                                    _isRecording
+                                        ? 'Appuyer pour arrêter l’enregistrement'
+                                        : _audioPath != null
+                                        ? 'Note vocale enregistrée'
+                                        : 'Appuyer pour enregistrer un vocal',
+                                    style: TextStyle(
+                                      fontFamily: 'Inter',
+                                      fontSize: 12.5,
+                                      color: _isRecording
+                                          ? Colors.red
+                                          : const Color(0xFF64748B),
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                  if (_isRecording) ...[
+                                    const SizedBox(height: 6),
+                                    Text(
+                                      '${_formaterDuree(_recordingDuration)} / 00:30',
+                                      style: const TextStyle(
+                                        fontFamily: 'Inter',
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w600,
+                                        color: Colors.red,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 5),
+                                    ClipRRect(
+                                      borderRadius: BorderRadius.circular(4),
+                                      child: LinearProgressIndicator(
+                                        value:
+                                            _recordingDuration.inSeconds / 30,
+                                        minHeight: 3,
+                                        backgroundColor: Colors.red.shade100,
+                                        color: Colors.red,
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    _construireApercuAudio(),
                   ],
                 ),
               ),
