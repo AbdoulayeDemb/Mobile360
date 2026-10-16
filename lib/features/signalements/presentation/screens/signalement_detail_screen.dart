@@ -1,7 +1,9 @@
+import 'package:alert360_mobile/core/network/media_url_helper.dart';
 import 'package:alert360_mobile/features/signalements/data/models/signalement.dart';
 import 'package:alert360_mobile/features/signalements/data/services/signalement_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:just_audio/just_audio.dart';
 
 class SignalementDetailScreen extends ConsumerStatefulWidget {
   final Signalement? signalement;
@@ -23,10 +25,13 @@ class SignalementDetailScreen extends ConsumerStatefulWidget {
 class _SignalementDetailScreenState
     extends ConsumerState<SignalementDetailScreen> {
   final SignalementService _signalementService = SignalementService();
+  final AudioPlayer _audioPlayer = AudioPlayer();
 
   Signalement? _signalement;
   bool _isLoading = false;
   bool _isPlayingAudio = false;
+  bool _isLoadingAudio = false;
+  String? _audioUrlChargee;
   String? _errorMessage;
 
   static const Color _primaryColor = Color(0xFF2563EB);
@@ -38,6 +43,17 @@ class _SignalementDetailScreenState
   @override
   void initState() {
     super.initState();
+
+    _audioPlayer.playerStateStream.listen((state) {
+      if (!mounted) return;
+
+      setState(() {
+        _isPlayingAudio = state.playing;
+        _isLoadingAudio =
+            state.processingState == ProcessingState.loading ||
+            state.processingState == ProcessingState.buffering;
+      });
+    });
 
     if (widget.signalement != null) {
       _signalement = widget.signalement;
@@ -52,11 +68,14 @@ class _SignalementDetailScreenState
 
     if (widget.signalement != oldWidget.signalement ||
         widget.signalementId != oldWidget.signalementId) {
+      _arreterAudio();
+
       if (widget.signalement != null) {
         setState(() {
           _signalement = widget.signalement;
           _errorMessage = null;
           _isPlayingAudio = false;
+          _isLoadingAudio = false;
         });
       } else {
         _chargerSignalement();
@@ -64,10 +83,21 @@ class _SignalementDetailScreenState
     }
   }
 
+  Future<void> _arreterAudio() async {
+    try {
+      await _audioPlayer.stop();
+      _audioUrlChargee = null;
+    } catch (e) {
+      debugPrint('Erreur lors de l’arrêt audio : $e');
+    }
+  }
+
   Future<void> _chargerSignalement() async {
     final String? idTexte = widget.signalementId;
 
     if (idTexte == null || idTexte.trim().isEmpty) {
+      if (!mounted) return;
+
       setState(() {
         _errorMessage = 'Aucun signalement n’a été fourni.';
         _isLoading = false;
@@ -78,6 +108,8 @@ class _SignalementDetailScreenState
     final int? id = int.tryParse(idTexte);
 
     if (id == null) {
+      if (!mounted) return;
+
       setState(() {
         _errorMessage = 'L’identifiant du signalement est invalide.';
         _isLoading = false;
@@ -116,6 +148,38 @@ class _SignalementDetailScreenState
       });
 
       debugPrint('Erreur chargement signalement : $e');
+    }
+  }
+
+  Future<void> _basculerLectureAudio(String url) async {
+    try {
+      if (_audioPlayer.playing && _audioUrlChargee == url) {
+        await _audioPlayer.pause();
+        return;
+      }
+
+      if (_audioUrlChargee != url) {
+        await _audioPlayer.stop();
+        await _audioPlayer.setUrl(url);
+        _audioUrlChargee = url;
+      } else if (_audioPlayer.processingState == ProcessingState.completed) {
+        await _audioPlayer.seek(Duration.zero);
+      }
+
+      await _audioPlayer.play();
+    } catch (e) {
+      debugPrint('Erreur de lecture audio : $e');
+      debugPrint('URL audio : $url');
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Impossible de lire cet enregistrement. Vérifie son URL et son accès au serveur.',
+          ),
+        ),
+      );
     }
   }
 
@@ -230,6 +294,12 @@ class _SignalementDetailScreenState
     } else if (Navigator.of(context).canPop()) {
       Navigator.of(context).pop();
     }
+  }
+
+  @override
+  void dispose() {
+    _audioPlayer.dispose();
+    super.dispose();
   }
 
   @override
@@ -366,7 +436,7 @@ class _SignalementDetailScreenState
   }
 
   Widget _construirePhoto(Signalement signalement) {
-    final photoUrl = signalement.photoAvantUrl?.trim();
+    final photoUrl = MediaUrlHelper.construireUrl(signalement.photoAvantUrl);
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(20),
@@ -374,11 +444,13 @@ class _SignalementDetailScreenState
         height: 220,
         width: double.infinity,
         color: const Color(0xFFE2E8F0),
-        child: photoUrl != null && photoUrl.isNotEmpty
+        child: photoUrl.isNotEmpty
             ? Image.network(
                 photoUrl,
                 fit: BoxFit.cover,
                 errorBuilder: (context, error, stackTrace) {
+                  debugPrint('Erreur chargement photo : $error');
+                  debugPrint('URL de la photo : $photoUrl');
                   return _photoIndisponible();
                 },
                 loadingBuilder: (context, child, progress) {
@@ -577,8 +649,9 @@ class _SignalementDetailScreenState
   }
 
   Widget _construireCarteAudio(Signalement signalement) {
-    final audioUrl = signalement.audioUrl?.trim();
-    final audioDisponible = audioUrl != null && audioUrl.isNotEmpty;
+    final audioUrl = MediaUrlHelper.construireUrl(signalement.audioUrl);
+    final audioDisponible = audioUrl.isNotEmpty;
+    final audioEnCours = _audioUrlChargee == audioUrl && _isPlayingAudio;
 
     return Container(
       padding: const EdgeInsets.all(18),
@@ -635,9 +708,13 @@ class _SignalementDetailScreenState
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    audioDisponible
-                        ? 'Enregistrement disponible'
-                        : 'Aucune note vocale disponible',
+                    !audioDisponible
+                        ? 'Aucune note vocale disponible'
+                        : _isLoadingAudio && _audioUrlChargee == audioUrl
+                        ? 'Chargement de l’enregistrement…'
+                        : audioEnCours
+                        ? 'Lecture en cours…'
+                        : 'Enregistrement disponible',
                     style: const TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w500,
@@ -647,20 +724,16 @@ class _SignalementDetailScreenState
                 ),
                 if (audioDisponible)
                   IconButton(
-                    tooltip: 'La lecture audio nécessite un lecteur audio',
-                    onPressed: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text(
-                            'Ajoute un lecteur audio au projet pour écouter cet enregistrement.',
-                          ),
-                        ),
-                      );
-                    },
-                    icon: const Icon(
-                      Icons.play_circle_outline_rounded,
+                    tooltip: audioEnCours ? 'Mettre en pause' : 'Écouter',
+                    onPressed: _isLoadingAudio
+                        ? null
+                        : () => _basculerLectureAudio(audioUrl),
+                    icon: Icon(
+                      audioEnCours
+                          ? Icons.pause_circle_filled_rounded
+                          : Icons.play_circle_fill_rounded,
                       color: _primaryColor,
-                      size: 32,
+                      size: 34,
                     ),
                   ),
               ],

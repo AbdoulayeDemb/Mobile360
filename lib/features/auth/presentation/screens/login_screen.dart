@@ -137,7 +137,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   Future<void> _login() async {
     if (_isLoading) return;
 
-    // Valide le formulaire avant d'exécuter la requête
     if (!(_formKey.currentState?.validate() ?? false)) {
       return;
     }
@@ -225,147 +224,154 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
-        child: Form(
-          key: _formKey,
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                const SizedBox(height: 20),
-
-                // Logo Alert360
-                Center(
-                  child: Image.asset(
-                    'assets/images/logo/logo_alert360.png',
-                    height: 75,
-                    fit: BoxFit.contain,
-                  ),
-                ),
-
-                const SizedBox(height: 24),
-
-                // Titre principal
-                const Text(
-                  'Connectez-vous',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontFamily: 'Poppins',
-                    color: AppColors.darkBlue,
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: -0.5,
-                  ),
-                ),
-
-                const SizedBox(height: 8),
-
-                // Sous-titre
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 16),
-                  child: Text(
-                    'Veuillez vous connecter pour pouvoir accéder à votre compte',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontFamily: 'Inter',
-                      color: AppColors.textSecondary,
-                      fontSize: 14,
-                      height: 1.4,
-                    ),
-                  ),
-                ),
-
-                const SizedBox(height: 32),
-
-                // Champ numéro de téléphone
-                _buildPhoneInputField(),
-
-                const SizedBox(height: 16),
-
-                // Champ mot de passe
-                _buildPasswordInputField(),
-
-                const SizedBox(height: 32),
-
-                // Bouton de connexion
-                SizedBox(
-                  width: double.infinity,
-                  height: 56,
-                  child: ElevatedButton(
-                    onPressed: _isLoading ? null : _login,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primaryBlue,
-                      foregroundColor: Colors.white,
-                      disabledBackgroundColor: AppColors.primaryBlue.withValues(
-                        alpha: 0.65,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      elevation: 0,
-                    ),
-                    child: _isLoading
-                        ? const SizedBox(
-                            height: 23,
-                            width: 23,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2.5,
-                              valueColor: AlwaysStoppedAnimation<Color>(
-                                Colors.white,
-                              ),
-                            ),
-                          )
-                        : const Text(
-                            'Se connecter',
-                            style: TextStyle(
-                              fontFamily: 'Inter',
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                  ),
-                ),
-
-                const SizedBox(height: 32),
-
-                // Lien vers l'inscription
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Text(
-                      'Pas de compte ? ',
-                      style: TextStyle(
-                        fontFamily: 'Inter',
-                        color: AppColors.textSecondary,
-                        fontSize: 14,
-                      ),
-                    ),
-                    GestureDetector(
-                      onTap: _isLoading ? null : widget.onNavigateToRegister,
-                      child: const Text(
-                        "S'inscrire",
-                        style: TextStyle(
-                          fontFamily: 'Inter',
+        child: Stack(
+          children: [
+            // Contenu centré verticalement et horizontalement
+            Center(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      // Logo Alert360 ajusté à la taille de la maquette (110)
+                      Image.asset(
+                        'assets/images/logo/logo_alert360.png',
+                        height: 130,
+                        fit: BoxFit.contain,
+                        errorBuilder: (_, __, ___) => const Icon(
+                          Icons.shield_rounded,
+                          size: 80,
                           color: AppColors.primaryBlue,
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                          decoration: TextDecoration.underline,
                         ),
                       ),
-                    ),
-                  ],
-                ),
 
-                const SizedBox(height: 24),
-              ],
+                      const SizedBox(height: 20),
+
+                      // Titre principal
+                      const Text(
+                        'Connectez-vous',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontFamily: 'Poppins',
+                          color: AppColors.darkBlue,
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: -0.5,
+                        ),
+                      ),
+
+                      const SizedBox(height: 8),
+
+                      // Sous-titre
+                      const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 16),
+                        child: Text(
+                          'Veuillez vous connecter pour pouvoir accéder à votre compte',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontFamily: 'Inter',
+                            color: AppColors.textSecondary,
+                            fontSize: 14,
+                            height: 1.4,
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(height: 28),
+
+                      // Champ numéro de téléphone
+                      _buildPhoneInputField(),
+
+                      const SizedBox(height: 16),
+
+                      // Champ mot de passe
+                      _buildPasswordInputField(),
+
+                      const SizedBox(height: 28),
+
+                      // Bouton de connexion
+                      SizedBox(
+                        width: double.infinity,
+                        height: 56,
+                        child: ElevatedButton(
+                          onPressed: _isLoading ? null : _login,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primaryBlue,
+                            foregroundColor: Colors.white,
+                            disabledBackgroundColor: AppColors.primaryBlue
+                                .withValues(alpha: 0.65),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            elevation: 0,
+                          ),
+                          child: _isLoading
+                              ? const SizedBox(
+                                  height: 23,
+                                  width: 23,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2.5,
+                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                      Colors.white,
+                                    ),
+                                  ),
+                                )
+                              : const Text(
+                                  'Se connecter',
+                                  style: TextStyle(
+                                    fontFamily: 'Inter',
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                        ),
+                      ),
+
+                      const SizedBox(height: 28),
+
+                      // Lien vers l'inscription
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Text(
+                            'Pas de compte ? ',
+                            style: TextStyle(
+                              fontFamily: 'Inter',
+                              color: AppColors.textSecondary,
+                              fontSize: 14,
+                            ),
+                          ),
+                          GestureDetector(
+                            onTap: _isLoading
+                                ? null
+                                : widget.onNavigateToRegister,
+                            child: const Text(
+                              "S'inscrire",
+                              style: TextStyle(
+                                fontFamily: 'Inter',
+                                color: AppColors.primaryBlue,
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                decoration: TextDecoration.underline,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ),
-          ),
+          ],
         ),
       ),
     );
   }
 
-  // Champ Téléphone avec bordure fixe et message d'erreur externe
   Widget _buildPhoneInputField() {
     return FormField<String>(
       validator: _phoneValidator,
@@ -427,7 +433,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       ),
                       onChanged: (val) => state.didChange(val),
                       decoration: const InputDecoration(
-                        hintText: 'Votre numéro de téléphone',
+                        hintText: 'Votre numero de téléphone',
                         hintStyle: TextStyle(
                           fontFamily: 'Inter',
                           color: Color(0xFF94A3B8),
@@ -461,7 +467,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     );
   }
 
-  // Champ Mot de passe avec bordure fixe et message d'erreur externe
   Widget _buildPasswordInputField() {
     return FormField<String>(
       validator: _passwordValidator,

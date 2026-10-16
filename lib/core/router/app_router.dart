@@ -2,6 +2,7 @@ import 'package:alert360_mobile/features/onboarding/presentation/screens/onboard
 import 'package:alert360_mobile/features/auth/presentation/screens/login_screen.dart';
 import 'package:alert360_mobile/features/auth/presentation/screens/register_flow.dart';
 import 'package:alert360_mobile/features/accueil/presentation/screens/home_screen.dart';
+import 'package:alert360_mobile/features/profil/presentation/screens/mon_profil_screen.dart';
 import 'package:alert360_mobile/features/signalements/presentation/screens/categories_selection_screen.dart';
 import 'package:alert360_mobile/features/signalements/presentation/screens/mes_signalements_screen.dart';
 import 'package:alert360_mobile/features/signalements/presentation/screens/problem_details_screen.dart';
@@ -157,6 +158,15 @@ final GoRouter appRouter = GoRouter(
             context.go('/home');
           },
         );
+      },
+    ),
+
+    // MON PROFIL
+    GoRoute(
+      path: '/profil',
+      name: 'profil',
+      builder: (BuildContext context, GoRouterState state) {
+        return const MonProfilScreen();
       },
     ),
   ],

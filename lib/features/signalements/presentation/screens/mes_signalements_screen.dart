@@ -1,4 +1,6 @@
+import 'package:alert360_mobile/core/network/media_url_helper.dart';
 import 'package:alert360_mobile/features/auth/presentation/providers/auth_provider.dart';
+import 'package:alert360_mobile/features/signalements/presentation/screens/signalement_detail_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -283,7 +285,13 @@ class _MesSignalementsScreenState extends ConsumerState<MesSignalementsScreen> {
   }
 
   void _ouvrirDetail(Signalement signalement) {
-    widget.onDetailTap?.call(signalement.idSignalement.toString());
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => SignalementDetailScreen(
+          signalementId: signalement.idSignalement.toString(),
+        ),
+      ),
+    );
   }
 
   @override
@@ -545,7 +553,7 @@ class _SignalementCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final photoUrl = signalement.photoAvantUrl?.trim();
+    final photoUrl = MediaUrlHelper.construireUrl(signalement.photoAvantUrl);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
