@@ -3,46 +3,40 @@ import 'package:dio/dio.dart';
 import 'api_exception.dart';
 
 class ApiErrorHandler {
-  ApiErrorHandler._();
-
   static ApiException handle(Object error) {
-    if (error is ApiException) {
-      return error;
-    }
-
     if (error is DioException) {
-      switch (error.type) {
-        case DioExceptionType.connectionTimeout:
-        case DioExceptionType.sendTimeout:
-        case DioExceptionType.receiveTimeout:
-        case DioExceptionType.transformTimeout:
-          return const ApiException(
-            message: 'Le serveur met trop de temps à répondre.',
-          );
+      final statusCode = error.response?.statusCode;
+      final responseData = error.response?.data;
 
-        case DioExceptionType.connectionError:
-          return const ApiException(
-            message: 'Connexion au serveur impossible. Vérifiez votre réseau.',
-          );
+      // Priorité au message détaillé renvoyé par le backend.
+      if (responseData is Map) {
+        final message = responseData['message'];
 
-        case DioExceptionType.badResponse:
-          return ApiException.fromStatusCode(error.response?.statusCode);
-
-        case DioExceptionType.cancel:
-          return const ApiException(message: 'La requête a été annulée.');
-
-        case DioExceptionType.badCertificate:
-          return const ApiException(
-            message: 'La connexion sécurisée au serveur a échoué.',
-          );
-
-        case DioExceptionType.unknown:
-          return const ApiException(
-            message: 'Une erreur réseau inattendue est survenue.',
-          );
+        if (message is String && message.trim().isNotEmpty) {
+          return ApiException(message: message.trim(), statusCode: statusCode);
+        }
       }
+
+      // Si le backend ne fournit aucun message exploitable.
+      if (statusCode != null) {
+        return ApiException.fromStatusCode(statusCode);
+      }
+
+      if (error.type == DioExceptionType.connectionTimeout ||
+          error.type == DioExceptionType.receiveTimeout ||
+          error.type == DioExceptionType.sendTimeout ||
+          error.type == DioExceptionType.connectionError) {
+        return const ApiException(
+          message:
+              'Impossible de contacter le serveur. Vérifiez votre connexion.',
+        );
+      }
+
+      return ApiException(
+        message: error.message ?? 'Une erreur inattendue est survenue.',
+      );
     }
 
-    return const ApiException(message: 'Une erreur inattendue est survenue.');
+    return ApiException(message: error.toString());
   }
 }

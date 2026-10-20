@@ -108,12 +108,21 @@ class _MesSignalementsScreenState extends ConsumerState<MesSignalementsScreen> {
       return;
     }
 
-    await _chargerPourCitoyen(auth.idUtilisateur, auth.role);
+    await _chargerPourCitoyen(
+      auth.idUtilisateur,
+      auth.role,
+      actualiser: actualiser,
+    );
   }
 
-  Future<void> _chargerPourCitoyen(int? idCitoyen, String? role) async {
+  Future<void> _chargerPourCitoyen(
+    int? idCitoyen,
+    String? role, {
+    bool actualiser = false,
+  }) async {
     if (idCitoyen == null) {
       if (!mounted) return;
+
       setState(() {
         _isLoading = false;
         _errorMessage =
@@ -124,6 +133,7 @@ class _MesSignalementsScreenState extends ConsumerState<MesSignalementsScreen> {
 
     if (role?.toUpperCase() != 'CITOYEN') {
       if (!mounted) return;
+
       setState(() {
         _isLoading = false;
         _signalements = [];
@@ -132,15 +142,11 @@ class _MesSignalementsScreenState extends ConsumerState<MesSignalementsScreen> {
       return;
     }
 
-    if (_idCitoyenCharge == idCitoyen && !_isLoading && _errorMessage == null) {
-      return;
-    }
-
     if (!mounted) return;
+
     setState(() {
       _isLoading = true;
       _errorMessage = null;
-      _idCitoyenCharge = idCitoyen;
     });
 
     try {
@@ -165,8 +171,9 @@ class _MesSignalementsScreenState extends ConsumerState<MesSignalementsScreen> {
         _signalements = result;
         _isLoading = false;
         _errorMessage = null;
+        _idCitoyenCharge = idCitoyen;
       });
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
 
       setState(() {

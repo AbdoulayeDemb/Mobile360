@@ -1,19 +1,22 @@
 import 'dart:async';
 
+import 'package:alert360_mobile/core/config/api_config.dart';
+import 'package:alert360_mobile/core/providers/weather_provider.dart';
+import 'package:alert360_mobile/core/theme/app_colors.dart';
 import 'package:alert360_mobile/features/about/presentation/screens/about_screen.dart';
 import 'package:alert360_mobile/features/auth/data/services/auth_service.dart';
 import 'package:alert360_mobile/features/auth/data/services/utilisateur_service.dart';
 import 'package:alert360_mobile/features/menu/presentation/screens/contact_screen.dart';
+import 'package:alert360_mobile/features/menu/presentation/screens/menu_screen.dart';
 import 'package:alert360_mobile/features/menu/presentation/screens/user_guide_flow.dart';
+import 'package:alert360_mobile/features/signalements/data/models/signalement.dart';
+import 'package:alert360_mobile/features/signalements/presentation/providers/signalement_provider.dart';
 import 'package:alert360_mobile/features/sos/presentation/screens/urgences_proximite_screen.dart';
+import 'package:alert360_mobile/features/auth/presentation/providers/auth_provider.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-
-import 'package:alert360_mobile/features/menu/presentation/screens/menu_screen.dart';
-
-import '../../../../core/theme/app_colors.dart';
-import '../../../auth/presentation/providers/auth_provider.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   final VoidCallback? onSignalProblem;
@@ -30,6 +33,7 @@ class HomeScreen extends ConsumerStatefulWidget {
     this.currentNavIndex = 0,
     this.onNavTap,
   });
+
   @override
   ConsumerState<HomeScreen> createState() => _HomeScreenState();
 }
@@ -94,9 +98,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   void _ouvrirUrgencesProximite() {
     if (!mounted) return;
 
-    final navigation = Navigator.of(context);
-
-    navigation
+    Navigator.of(context)
         .push(
           MaterialPageRoute<void>(
             builder: (_) => const UrgencesProximiteScreen(),
@@ -121,45 +123,40 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   void _ouvrirMenu(BuildContext context) {
     Navigator.of(context).push(
-      MaterialPageRoute(
+      MaterialPageRoute<void>(
         builder: (_) => MenuScreen(
           onClose: () => Navigator.of(context).pop(),
-
           onMonCompteTap: () {
             Navigator.of(context).pop();
             context.push('/profil');
           },
-
           onMesSignalementsTap: () {
             Navigator.of(context).pop();
             context.push('/mes-signalements');
           },
-
           onActualiteTap: () {
             Navigator.of(context).pop();
-            // TODO : ouvrir le fil d'actualité
+            context.push('/actualites');
           },
-
           onApprentissageTap: () {
             Navigator.of(context).pop();
-            // TODO : ouvrir l'écran d'apprentissage
+            context.push('/contenus-educatifs');
           },
-
           onNotificationsTap: () {
             Navigator.of(context).pop();
-            // TODO : ouvrir les notifications
+            // TODO : ouvrir les notifications.
           },
-
           onAProposTap: () {
-            Navigator.of(context)
-                .push(MaterialPageRoute(builder: (_) => const AboutScreen()));
+            Navigator.of(context).pop();
+            Navigator.of(context).push(
+              MaterialPageRoute<void>(builder: (_) => const AboutScreen()),
+            );
           },
-
           onContactTap: () {
             Navigator.of(context).pop();
 
             Navigator.of(context).push(
-              MaterialPageRoute(
+              MaterialPageRoute<void>(
                 builder: (_) => ContactScreen(
                   chargerEmail: () async {
                     final authService = AuthService();
@@ -167,9 +164,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
                     final idUtilisateur = await authService.getCurrentUserId();
 
-                    if (idUtilisateur == null) {
-                      return null;
-                    }
+                    if (idUtilisateur == null) return null;
 
                     final profil = await utilisateurService.getUtilisateurById(
                       idUtilisateur,
@@ -187,16 +182,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ),
             );
           },
-
           onModeEmploiTap: () {
             Navigator.of(context).pop();
-
-            Navigator.of(context)
-                .push(MaterialPageRoute(builder: (_) => const UserGuideFlow()));
+            Navigator.of(context).push(
+              MaterialPageRoute<void>(builder: (_) => const UserGuideFlow()),
+            );
           },
           onDeconnexionTap: () {
             Navigator.of(context).pop();
-            // TODO : déconnecter l'utilisateur
+            // TODO : déconnecter l'utilisateur.
           },
         ),
       ),
@@ -208,15 +202,40 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final authState = ref.watch(authControllerProvider);
     final utilisateur = authState.asData?.value;
 
-    final prenom = utilisateur?.prenom?.trim() ?? '';
-    final nomAffiche = prenom.isNotEmpty ? prenom : 'citoyen';
+    final weatherAsync = ref.watch(weatherProvider);
+    final citoyenIdAsync = ref.watch(currentCitoyenIdProvider);
+
+    // Actualiser automatiquement les signalements récents
+    // lorsqu'un nouveau signalement est créé avec succès.
+    ref.listen<AsyncValue<Signalement?>>(creationSignalementProvider, (
+      previous,
+      next,
+    ) {
+      final nouveauSignalement = next.asData?.value;
+
+      if (nouveauSignalement == null) return;
+
+      // Éviter une invalidation inutile si le résultat n'a pas changé.
+      final ancienSignalement = previous?.asData?.value;
+
+      if (ancienSignalement?.idSignalement ==
+          nouveauSignalement.idSignalement) {
+        return;
+      }
+
+      final idCitoyen = citoyenIdAsync.asData?.value;
+
+      if (idCitoyen != null) {
+        ref.invalidate(signalementsByCitoyenProvider(idCitoyen));
+      }
+    });
 
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
         child: Column(
           children: [
-            // 1. En-tête fixé en haut (Logo + Menu burger)
+            // En-tête : logo et menu.
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
               color: AppColors.background,
@@ -241,7 +260,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ),
             ),
 
-            // 2. Reste du contenu défilable
+            // Contenu défilable.
             Expanded(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.symmetric(
@@ -251,7 +270,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Localisation et météo
+                    // Localisation et météo dynamique.
                     Container(
                       height: 56,
                       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -292,16 +311,56 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             width: 1,
                             color: const Color(0xFFCBD5E1),
                           ),
-                          const SizedBox(width: 16),
-                          const Text('☀️', style: TextStyle(fontSize: 20)),
-                          const SizedBox(width: 6),
-                          const Text(
-                            '32 °C',
-                            style: TextStyle(
-                              fontFamily: 'Inter',
-                              fontSize: 15,
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.darkBlue,
+                          const SizedBox(width: 12),
+                          weatherAsync.when(
+                            loading: () => const SizedBox(
+                              width: 64,
+                              height: 24,
+                              child: Center(
+                                child: SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: AppColors.primaryBlue,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            error: (error, stackTrace) => IconButton(
+                              tooltip: 'Réessayer de charger la météo',
+                              onPressed: () {
+                                ref.invalidate(weatherProvider);
+                              },
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(
+                                minWidth: 32,
+                                minHeight: 32,
+                              ),
+                              icon: const Icon(
+                                Icons.refresh_rounded,
+                                color: AppColors.primaryBlue,
+                                size: 22,
+                              ),
+                            ),
+                            data: (weather) => Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  weather.icon,
+                                  style: const TextStyle(fontSize: 20),
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  '${weather.temperature.round()} °C',
+                                  style: const TextStyle(
+                                    fontFamily: 'Inter',
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppColors.darkBlue,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ],
@@ -310,7 +369,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
                     const SizedBox(height: 20),
 
-                    // Bannière
+                    // Bannière d'accueil.
                     ClipRRect(
                       borderRadius: BorderRadius.circular(20),
                       child: SizedBox(
@@ -370,7 +429,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
                     const SizedBox(height: 20),
 
-                    // Carte de signalement
+                    // Carte de signalement.
                     Material(
                       color: Colors.transparent,
                       borderRadius: BorderRadius.circular(24),
@@ -460,8 +519,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                 ],
                               ),
                               const SizedBox(height: 16),
-
-                              // Bouton "Toutes les catégories" identique à la maquette
                               InkWell(
                                 onTap: widget.onAllCategories,
                                 borderRadius: BorderRadius.circular(12),
@@ -472,9 +529,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                     color: Colors.white,
                                     borderRadius: BorderRadius.circular(12),
                                   ),
-                                  child: Row(
+                                  child: const Row(
                                     mainAxisAlignment: MainAxisAlignment.center,
-                                    children: const [
+                                    children: [
                                       Text(
                                         'Toutes les catégories',
                                         style: TextStyle(
@@ -502,9 +559,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
                     const SizedBox(height: 16),
 
-                    // SOS
-
-                    // SOS URGENCE DIRECT
+                    // SOS URGENCE DIRECT.
                     Listener(
                       behavior: HitTestBehavior.opaque,
                       onPointerDown: (_) => _commencerMaintienSos(),
@@ -619,158 +674,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       ),
                     ),
 
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 22),
 
-                    // Section "Mes récompenses"
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: const Color(0xFFE2E8F0)),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.03),
-                            blurRadius: 10,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Mes récompenses',
-                            style: TextStyle(
-                              fontFamily: 'Poppins',
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.darkBlue,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          const Text(
-                            'Découvrez vos points civiques et badges',
-                            style: TextStyle(
-                              fontFamily: 'Inter',
-                              fontSize: 12,
-                              color: AppColors.textSecondary,
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Container(
-                                  padding: const EdgeInsets.all(12),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFF8FAFC),
-                                    borderRadius: BorderRadius.circular(14),
-                                    border: Border.all(
-                                      color: const Color(0xFFF1F5F9),
-                                    ),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      Image.asset(
-                                        'assets/images/icons/star_icon.png',
-                                        width: 40,
-                                        height: 40,
-                                        fit: BoxFit.contain,
-                                        errorBuilder: (_, __, ___) =>
-                                            const Icon(
-                                              Icons.star_rounded,
-                                              color: Color(0xFFEAB308),
-                                              size: 32,
-                                            ),
-                                      ),
-                                      const SizedBox(width: 10),
-                                      Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: const [
-                                          Text(
-                                            '450',
-                                            style: TextStyle(
-                                              fontFamily: 'Poppins',
-                                              fontSize: 18,
-                                              fontWeight: FontWeight.bold,
-                                              color: AppColors.darkBlue,
-                                            ),
-                                          ),
-                                          Text(
-                                            'Points civiques',
-                                            style: TextStyle(
-                                              fontFamily: 'Inter',
-                                              fontSize: 11,
-                                              color: AppColors.textSecondary,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Container(
-                                  padding: const EdgeInsets.all(12),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFF8FAFC),
-                                    borderRadius: BorderRadius.circular(14),
-                                    border: Border.all(
-                                      color: const Color(0xFFF1F5F9),
-                                    ),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      Image.asset(
-                                        'assets/images/icons/badget_icon.png',
-                                        width: 40,
-                                        height: 40,
-                                        fit: BoxFit.contain,
-                                        errorBuilder: (_, __, ___) =>
-                                            const Icon(
-                                              Icons.workspace_premium_rounded,
-                                              color: Color(0xFFD97706),
-                                              size: 32,
-                                            ),
-                                      ),
-                                      const SizedBox(width: 10),
-                                      Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: const [
-                                          Text(
-                                            '100',
-                                            style: TextStyle(
-                                              fontFamily: 'Poppins',
-                                              fontSize: 18,
-                                              fontWeight: FontWeight.bold,
-                                              color: AppColors.darkBlue,
-                                            ),
-                                          ),
-                                          Text(
-                                            'Badges obtenus',
-                                            style: TextStyle(
-                                              fontFamily: 'Inter',
-                                              fontSize: 11,
-                                              color: AppColors.textSecondary,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
+                    // Mes signalements récents : données réelles du citoyen.
+                    _buildMesSignalementsSection(citoyenIdAsync),
+
                     const SizedBox(height: 20),
                   ],
                 ),
@@ -779,6 +687,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ],
         ),
       ),
+
+      // Navigation inférieure.
       bottomNavigationBar: Container(
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
         color: Colors.transparent,
@@ -818,7 +728,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   }
                 },
               ),
-
               _NavButton(
                 assetPath: 'assets/images/icons/user_icon.png',
                 index: 2,
@@ -834,6 +743,464 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildMesSignalementsSection(AsyncValue<int?> citoyenIdAsync) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.035),
+            blurRadius: 14,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                height: 44,
+                width: 44,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE0F7FA),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: const Icon(
+                  Icons.assignment_outlined,
+                  color: Color(0xFF0097A7),
+                  size: 25,
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Mes signalements',
+                      style: TextStyle(
+                        fontFamily: 'Poppins',
+                        fontSize: 17,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.darkBlue,
+                      ),
+                    ),
+                    SizedBox(height: 3),
+                    Text(
+                      'Suivez vos 3 dernières déclarations récentes',
+                      style: TextStyle(
+                        fontFamily: 'Inter',
+                        fontSize: 11,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              TextButton(
+                onPressed: () => context.push('/mes-signalements'),
+                child: const Text(
+                  'Voir tout',
+                  style: TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF0097A7),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          citoyenIdAsync.when(
+            loading: () => const Padding(
+              padding: EdgeInsets.symmetric(vertical: 28),
+              child: Center(
+                child: CircularProgressIndicator(color: Color(0xFF0097A7)),
+              ),
+            ),
+            error: (error, stackTrace) => _messageSignalements(
+              icon: Icons.error_outline_rounded,
+              message: 'Impossible de charger votre compte.',
+              actionLabel: 'Réessayer',
+              onAction: () => ref.invalidate(currentCitoyenIdProvider),
+            ),
+            data: (idCitoyen) {
+              if (idCitoyen == null) {
+                return _messageSignalements(
+                  icon: Icons.person_outline_rounded,
+                  message: 'Connectez-vous pour consulter vos signalements.',
+                );
+              }
+
+              final signalementsAsync = ref.watch(
+                signalementsByCitoyenProvider(idCitoyen),
+              );
+
+              return signalementsAsync.when(
+                loading: () => const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 28),
+                  child: Center(
+                    child: CircularProgressIndicator(color: Color(0xFF0097A7)),
+                  ),
+                ),
+                error: (error, stackTrace) => _messageSignalements(
+                  icon: Icons.cloud_off_rounded,
+                  message: 'Impossible de charger vos signalements.',
+                  actionLabel: 'Réessayer',
+                  onAction: () {
+                    ref.invalidate(signalementsByCitoyenProvider(idCitoyen));
+                  },
+                ),
+                data: (signalements) {
+                  if (signalements.isEmpty) {
+                    return _messageSignalements(
+                      icon: Icons.assignment_outlined,
+                      message: 'Vous n’avez pas encore créé de signalement.',
+                      actionLabel: 'Signaler un problème',
+                      onAction: widget.onSignalProblem,
+                    );
+                  }
+
+                  final signalementsRecents = [...signalements]
+                    ..sort((a, b) {
+                      final dateA = a.dateHeureAlerte;
+                      final dateB = b.dateHeureAlerte;
+
+                      if (dateA == null && dateB == null) return 0;
+                      if (dateA == null) return 1;
+                      if (dateB == null) return -1;
+
+                      return dateB.compareTo(dateA);
+                    });
+
+                  final troisDerniers = signalementsRecents.take(3).toList();
+                  return Column(
+                    children: [
+                      for (int i = 0; i < troisDerniers.length; i++) ...[
+                        _SignalementRecentCard(
+                          signalement: troisDerniers[i],
+                          onTap: () {
+                            context.push('/mes-signalements');
+                          },
+                        ),
+                        if (i < troisDerniers.length - 1)
+                          const SizedBox(height: 10),
+                      ],
+                      if (signalements.length > 5) ...[
+                        const SizedBox(height: 12),
+                        Text(
+                          '${signalements.length - 5} autre(s) signalement(s) disponible(s)',
+                          style: const TextStyle(
+                            fontFamily: 'Inter',
+                            fontSize: 11,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ],
+                  );
+                },
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _messageSignalements({
+    required IconData icon,
+    required String message,
+    String? actionLabel,
+    VoidCallback? onAction,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 22),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, size: 30, color: AppColors.textSecondary),
+          const SizedBox(height: 8),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontFamily: 'Inter',
+              fontSize: 12,
+              color: AppColors.textSecondary,
+            ),
+          ),
+          if (actionLabel != null && onAction != null) ...[
+            const SizedBox(height: 10),
+            TextButton(onPressed: onAction, child: Text(actionLabel)),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _SignalementRecentCard extends StatelessWidget {
+  final Signalement signalement;
+  final VoidCallback onTap;
+
+  const _SignalementRecentCard({
+    required this.signalement,
+    required this.onTap,
+  });
+
+  String get _statutNormalise {
+    return signalement.statut
+        .trim()
+        .toUpperCase()
+        .replaceAll('É', 'E')
+        .replaceAll('È', 'E')
+        .replaceAll(' ', '_');
+  }
+
+  Color get _couleurStatut {
+    switch (_statutNormalise) {
+      case 'RESOLU':
+        return const Color(0xFF10B981); // Vert
+      case 'EN_COURS':
+        return const Color(0xFFF59E0B); // Orange
+      case 'REJETE':
+        return const Color(0xFFEF4444); // Rouge
+      case 'DECLARE':
+      default:
+        return const Color(0xFF3B82F6); // Bleu
+    }
+  }
+
+  String get _statutLisible {
+    switch (_statutNormalise) {
+      case 'DECLARE':
+        return 'Déclaré';
+      case 'EN_COURS':
+        return 'En cours';
+      case 'RESOLU':
+        return 'Résolu';
+      case 'REJETE':
+        return 'Rejeté';
+      default:
+        return signalement.statut.replaceAll('_', ' ');
+    }
+  }
+
+  String _formaterDate(DateTime? date) {
+    if (date == null) return 'Date indisponible';
+
+    final d = date.toLocal();
+    final jour = d.day.toString().padLeft(2, '0');
+    final mois = d.month.toString().padLeft(2, '0');
+
+    return '$jour/$mois/${d.year}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final photoUrl = ApiConfig.construireUrl(signalement.photoAvantUrl ?? '');
+    debugPrint(
+      '[PHOTO SIGNALEMENT ${signalement.idSignalement}] '
+      'URL reçue : "$photoUrl"',
+    );
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 2),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFE2E8F0), width: 1.2),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.025),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(18),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(18),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            child: Row(
+              children: [
+                // Photo du signalement
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: SizedBox(
+                    width: 66,
+                    height: 72,
+                    child: photoUrl.isNotEmpty
+                        ? Image.network(
+                            photoUrl,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) {
+                              debugPrint('Erreur chargement photo : $photoUrl');
+                              debugPrint('Détail erreur : $error');
+                              debugPrintStack(stackTrace: stackTrace);
+
+                              return _photoFallback();
+                            },
+                            loadingBuilder: (context, child, progress) {
+                              if (progress == null) return child;
+
+                              return Container(
+                                color: const Color(0xFFF1F5F9),
+                                alignment: Alignment.center,
+                                child: const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Color(0xFF3B5998),
+                                  ),
+                                ),
+                              );
+                            },
+                          )
+                        : _photoFallback(),
+                  ),
+                ),
+
+                const SizedBox(width: 12),
+
+                // Informations du signalement
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        signalement.categorieNom?.trim().isNotEmpty == true
+                            ? signalement.categorieNom!.trim()
+                            : 'Signalement',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontFamily: 'Poppins',
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.darkBlue,
+                        ),
+                      ),
+
+                      const SizedBox(height: 4),
+
+                      Text(
+                        signalement.codeTrackingUnique?.trim().isNotEmpty ==
+                                true
+                            ? signalement.codeTrackingUnique!.trim()
+                            : '#${signalement.idSignalement}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontFamily: 'Inter',
+                          fontSize: 11,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+
+                      const SizedBox(height: 7),
+
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.calendar_today_rounded,
+                            size: 12,
+                            color: AppColors.textSecondary,
+                          ),
+                          const SizedBox(width: 5),
+                          Expanded(
+                            child: Text(
+                              _formaterDate(signalement.dateHeureAlerte),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontFamily: 'Inter',
+                                fontSize: 10,
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(width: 8),
+
+                // Badge de statut à droite
+                Flexible(
+                  flex: 0,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 9,
+                      vertical: 5,
+                    ),
+                    decoration: BoxDecoration(
+                      color: _couleurStatut,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      _statutLisible,
+                      textAlign: TextAlign.center,
+                      maxLines: 1,
+                      softWrap: false,
+                      style: const TextStyle(
+                        fontFamily: 'Inter',
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+
+                const SizedBox(width: 2),
+
+                // Flèche à l'extrémité droite
+                const Icon(
+                  Icons.chevron_right_rounded,
+                  size: 21,
+                  color: Color(0xFF94A3B8),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _photoFallback() {
+    return Container(
+      color: const Color(0xFFEAF0FF),
+      alignment: Alignment.center,
+      child: const Icon(
+        Icons.image_outlined,
+        size: 25,
+        color: Color(0xFF3B5998),
       ),
     );
   }
@@ -856,6 +1223,11 @@ class _NavButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return IconButton(
       onPressed: () => onTap?.call(index),
+      tooltip: index == 0
+          ? 'Accueil'
+          : index == 1
+          ? 'Mes signalements'
+          : 'Mon profil',
       icon: Image.asset(assetPath, width: 26, height: 26, fit: BoxFit.contain),
     );
   }

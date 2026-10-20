@@ -33,9 +33,11 @@ class AuthController extends AsyncNotifier<AuthResponse?> {
     }
 
     final userId = await authService.getCurrentUserId();
+    final token = await SecureStorageService.getToken();
 
-    // Impossible de restaurer le profil sans identifiant.
-    if (userId == null) {
+    // Une session incomplète ne peut pas être restaurée.
+    if (userId == null || token == null || token.trim().isEmpty) {
+      await _clearSessionSafely();
       return null;
     }
 
@@ -45,19 +47,13 @@ class AuthController extends AsyncNotifier<AuthResponse?> {
           .getUtilisateurById(userId);
 
       if (response is! Map) {
+        // La réponse est invalide : ne pas considérer la session restaurée.
         return null;
       }
 
       final utilisateur = Utilisateur.fromJson(
         Map<String, dynamic>.from(response),
       );
-
-      // Reconstruire la session à partir du profil récupéré.
-      final token = await SecureStorageService.getToken();
-
-      if (token == null || token.isEmpty) {
-        return null;
-      }
 
       final auth = AuthResponse(
         token: token,
@@ -74,7 +70,6 @@ class AuthController extends AsyncNotifier<AuthResponse?> {
         estResponsable: utilisateur.estResponsable,
       );
 
-      // Vérifier que le profil peut utiliser l'application mobile.
       if (!_isAuthorizedForMobile(auth)) {
         await _clearSessionSafely();
         return null;
@@ -82,8 +77,8 @@ class AuthController extends AsyncNotifier<AuthResponse?> {
 
       return auth;
     } catch (_) {
-      // Une erreur réseau ne signifie pas nécessairement que
-      // le token est invalide : ne pas supprimer la session ici.
+      // Une erreur réseau temporaire ne doit pas effacer le token.
+      // L'état reste toutefois non authentifié dans cette version.
       return null;
     }
   }
@@ -107,31 +102,32 @@ class AuthController extends AsyncNotifier<AuthResponse?> {
     return false;
   }
 
-  /// Supprime la session enregistrée sans masquer l'erreur initiale.
+  /// Supprime la session locale sans propager les erreurs de nettoyage.
   Future<void> _clearSessionSafely() async {
     try {
       await ref.read(authRepositoryProvider).logout();
     } catch (_) {
-      // Si le nettoyage échoue, ne pas faire planter l'application.
+      // Le nettoyage ne doit pas faire planter le contrôleur.
     }
   }
 
-  /// Connexion d'un citoyen ou d'un agent de terrain.
+  /// Connexion d'un citoyen ou d'un agent de terrain autorisé.
   Future<void> login({
     required String telephone,
     required String motDePasse,
   }) async {
     state = const AsyncLoading();
 
-    state = await AsyncValue.guard(() async {
+    try {
       final auth = await ref
           .read(authRepositoryProvider)
           .login(telephone: telephone, motDePasse: motDePasse);
 
-      // Défense supplémentaire côté Flutter.
-      // Le backend doit également appliquer cette restriction.
+      // Le repository enregistre déjà la session.
       if (!_isAuthorizedForMobile(auth)) {
         await _clearSessionSafely();
+
+        state = AsyncData(null);
 
         throw Exception(
           "Accès refusé : ce profil n'est pas autorisé "
@@ -139,8 +135,13 @@ class AuthController extends AsyncNotifier<AuthResponse?> {
         );
       }
 
-      return auth;
-    });
+      // Publier immédiatement la session authentifiée.
+      state = AsyncData(auth);
+    } catch (error, stackTrace) {
+      // Ne pas laisser l'état bloqué en chargement.
+      state = AsyncError(error, stackTrace);
+      rethrow;
+    }
   }
 
   /// Déconnexion et suppression de la session locale.
@@ -148,6 +149,7 @@ class AuthController extends AsyncNotifier<AuthResponse?> {
     try {
       await ref.read(authRepositoryProvider).logout();
     } finally {
+      // Le routeur peut observer cet état et rediriger vers /login.
       state = const AsyncData(null);
     }
   }

@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:alert360_mobile/features/signalements/data/services/signalement_service.dart';
+import 'package:alert360_mobile/features/signalements/presentation/providers/signalement_provider.dart';
 import 'package:alert360_mobile/features/signalements/presentation/screens/mes_signalements_screen.dart';
 import 'package:alert360_mobile/features/signalements/presentation/screens/signalement_confirmation_screen.dart';
 import 'package:flutter/material.dart';
@@ -112,19 +113,96 @@ class _ProblemDetailsScreenState extends ConsumerState<ProblemDetailsScreen> {
   void _showMessage(String message) {
     if (!mounted) return;
 
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text(
-            message,
-            style: const TextStyle(fontFamily: 'Inter', fontSize: 13),
+    showDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      builder: (dialogContext) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          insetPadding: const EdgeInsets.symmetric(horizontal: 28),
+          child: Container(
+            padding: const EdgeInsets.all(22),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.12),
+                  blurRadius: 24,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 58,
+                  height: 58,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEFF6FF),
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                  child: const Icon(
+                    Icons.info_outline_rounded,
+                    color: Color(0xFF3B5998),
+                    size: 30,
+                  ),
+                ),
+                const SizedBox(height: 18),
+                const Text(
+                  'Information',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontFamily: 'Poppins',
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.darkBlue,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  message,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 13.5,
+                    height: 1.5,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  height: 46,
+                  child: ElevatedButton(
+                    onPressed: () => Navigator.of(dialogContext).pop(),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF3B5998),
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                    child: const Text(
+                      'Compris',
+                      style: TextStyle(
+                        fontFamily: 'Inter',
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
-          behavior: SnackBarBehavior.floating,
-          backgroundColor: AppColors.darkBlue,
-          duration: const Duration(seconds: 3),
-        ),
-      );
+        );
+      },
+    );
   }
 
   // Supprimer la photo sélectionnée
@@ -399,7 +477,7 @@ class _ProblemDetailsScreenState extends ConsumerState<ProblemDetailsScreen> {
       final serviceEnabled = await Geolocator.isLocationServiceEnabled();
 
       if (!serviceEnabled) {
-        throw Exception('Activez la localisation GPS de votre téléphone.');
+        throw Exception('Activez le GPS de votre téléphone, puis réessayez.');
       }
 
       LocationPermission permission = await Geolocator.checkPermission();
@@ -408,25 +486,59 @@ class _ProblemDetailsScreenState extends ConsumerState<ProblemDetailsScreen> {
         permission = await Geolocator.requestPermission();
       }
 
-      if (permission == LocationPermission.denied) {
-        throw Exception('La permission de localisation a été refusée.');
-      }
-
-      if (permission == LocationPermission.deniedForever) {
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
         throw Exception(
-          'La localisation est refusée définitivement. '
-          'Autorisez-la dans les paramètres du téléphone.',
+          'Autorisez Alert360 à accéder à la localisation précise '
+          'dans les paramètres du téléphone.',
         );
       }
 
+      // Demander une position actuelle, et non une ancienne position mémorisée.
       final position = await Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.best,
-          timeLimit: Duration(seconds: 20),
+          accuracy: LocationAccuracy.bestForNavigation,
+          distanceFilter: 0,
+          timeLimit: Duration(seconds: 30),
         ),
       );
 
       if (!mounted) return;
+
+      final age = DateTime.now().difference(position.timestamp).abs();
+
+      debugPrint('========== POSITION GPS ==========');
+      debugPrint('Latitude : ${position.latitude}');
+      debugPrint('Longitude : ${position.longitude}');
+      debugPrint('Précision : ${position.accuracy} mètres');
+      debugPrint('Âge : ${age.inSeconds} secondes');
+      debugPrint('Source simulée : ${position.isMocked}');
+      debugPrint('==================================');
+
+      // Refuser une position simulée, si le système la détecte.
+      if (position.isMocked) {
+        throw Exception(
+          'Le téléphone fournit une position simulée. '
+          'Désactivez toute application de fausse localisation.',
+        );
+      }
+
+      // Refuser une position trop ancienne.
+      if (age > const Duration(seconds: 15)) {
+        throw Exception(
+          'La position reçue est trop ancienne. '
+          'Placez-vous dans un endroit dégagé et réessayez.',
+        );
+      }
+
+      // Refuser une position trop imprécise.
+      if (position.accuracy > 30) {
+        throw Exception(
+          'La précision GPS est insuffisante '
+          '(${position.accuracy.toStringAsFixed(0)} m). '
+          'Activez la localisation précise et réessayez.',
+        );
+      }
 
       setState(() {
         _position = position;
@@ -436,6 +548,7 @@ class _ProblemDetailsScreenState extends ConsumerState<ProblemDetailsScreen> {
         _adresse = null;
       });
 
+      // Cette étape ne modifie pas les coordonnées GPS.
       await _rechercherAdresse(position.latitude, position.longitude);
     } catch (e) {
       if (!mounted) return;
@@ -447,6 +560,8 @@ class _ProblemDetailsScreenState extends ConsumerState<ProblemDetailsScreen> {
         _isLoadingLocation = false;
         _locationError = e.toString().replaceFirst('Exception: ', '');
       });
+
+      debugPrint('Erreur de localisation : $e');
     }
   }
 
@@ -576,6 +691,14 @@ class _ProblemDetailsScreenState extends ConsumerState<ProblemDetailsScreen> {
       return;
     }
 
+    // La photo est obligatoire
+    if (_photoFile == null) {
+      _showMessage(
+        'Veuillez prendre une photo de l’incident avant de soumettre le signalement.',
+      );
+      return;
+    }
+
     if (_position == null) {
       _showMessage(
         'La position GPS est nécessaire. '
@@ -616,8 +739,6 @@ class _ProblemDetailsScreenState extends ConsumerState<ProblemDetailsScreen> {
 
       // 1. Téléverser la photo.
       if (_photoFile != null) {
-        _showMessage('Téléversement de la photo...');
-
         photoAvantUrl = await signalementService.televerserMedia(
           fichier: _photoFile!,
           endpoint: '/api/medias/photo',
@@ -631,8 +752,6 @@ class _ProblemDetailsScreenState extends ConsumerState<ProblemDetailsScreen> {
         if (!await audioFile.exists()) {
           throw Exception('Le fichier de la note vocale est introuvable.');
         }
-
-        _showMessage('Téléversement de la note vocale...');
 
         audioUrl = await signalementService.televerserMedia(
           fichier: audioFile,
@@ -655,12 +774,13 @@ class _ProblemDetailsScreenState extends ConsumerState<ProblemDetailsScreen> {
       );
 
       // 4. Envoyer le signalement et récupérer la réponse du backend.
-      _showMessage('Envoi du signalement...');
 
       final signalement = await ref
           .read(signalementRepositoryProvider)
           .creerSignalement(request);
 
+      // Actualiser les signalements du citoyen connecté.
+      ref.invalidate(signalementsByCitoyenProvider(auth.idUtilisateur!));
       if (!mounted) return;
 
       // 5. Construire une localisation lisible.
@@ -699,7 +819,7 @@ class _ProblemDetailsScreenState extends ConsumerState<ProblemDetailsScreen> {
             },
 
             onTrackSignalement: () {
-              Navigator.of(confirmationContext).push(
+              Navigator.of(confirmationContext).pushReplacement(
                 MaterialPageRoute<void>(
                   builder: (_) => const MesSignalementsScreen(),
                 ),
@@ -708,7 +828,6 @@ class _ProblemDetailsScreenState extends ConsumerState<ProblemDetailsScreen> {
           ),
         ),
       );
-
       // Le callback n'est conservé que si ton écran parent
       // en a encore besoin. Il n'est pas appelé automatiquement
       // ici afin d'éviter une seconde navigation concurrente.
@@ -756,70 +875,103 @@ class _ProblemDetailsScreenState extends ConsumerState<ProblemDetailsScreen> {
       return const SizedBox.shrink();
     }
 
+    final couleur = _isRecording
+        ? const Color(0xFFDC2626)
+        : const Color(0xFF3B5998);
+
     return Container(
-      margin: const EdgeInsets.only(top: 10),
-      padding: const EdgeInsets.all(12),
+      margin: const EdgeInsets.only(top: 12),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: _isRecording ? Colors.red.shade200 : const Color(0xFFE2E8F0),
-        ),
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
       ),
       child: Row(
         children: [
-          Icon(
-            _isRecording ? Icons.fiber_manual_record : Icons.mic_rounded,
-            color: _isRecording ? Colors.red : AppColors.primaryBlue,
-            size: 26,
+          Container(
+            width: 46,
+            height: 46,
+            decoration: BoxDecoration(
+              color: couleur.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Icon(
+              _isRecording
+                  ? Icons.graphic_eq_rounded
+                  : Icons.audio_file_rounded,
+              color: couleur,
+              size: 25,
+            ),
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   _isRecording
-                      ? 'Enregistrement en cours...'
-                      : 'Note vocale prête',
+                      ? 'Enregistrement en cours'
+                      : 'Note vocale enregistrée',
                   style: const TextStyle(
                     fontFamily: 'Inter',
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w700,
                     color: AppColors.darkBlue,
                   ),
                 ),
-                const SizedBox(height: 3),
+                const SizedBox(height: 5),
                 Text(
-                  _formaterDuree(_recordingDuration),
-                  style: TextStyle(
+                  '${_formaterDuree(_recordingDuration)} / 00:30',
+                  style: const TextStyle(
                     fontFamily: 'Inter',
-                    fontSize: 12,
-                    color: _isRecording ? Colors.red : AppColors.textSecondary,
+                    fontSize: 11.5,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: LinearProgressIndicator(
+                    value: (_recordingDuration.inSeconds / 30).clamp(0.0, 1.0),
+                    minHeight: 4,
+                    backgroundColor: const Color(0xFFE2E8F0),
+                    color: couleur,
                   ),
                 ),
               ],
             ),
           ),
+          const SizedBox(width: 8),
           if (_isRecording)
             IconButton(
-              tooltip: 'Arrêter',
+              tooltip: 'Arrêter l’enregistrement',
               onPressed: _arreterEnregistrementAudio,
-              icon: const Icon(Icons.stop_circle_rounded, color: Colors.red),
+              style: IconButton.styleFrom(
+                backgroundColor: const Color(0xFFFEE2E2),
+                foregroundColor: const Color(0xFFDC2626),
+              ),
+              icon: const Icon(Icons.stop_rounded),
             )
           else ...[
             IconButton(
               tooltip: _isPlayingAudio ? 'Arrêter la lecture' : 'Écouter',
               onPressed: _isPlayingAudio ? _arreterLectureAudio : _ecouterAudio,
+              style: IconButton.styleFrom(
+                backgroundColor: const Color(0xFFEFF6FF),
+                foregroundColor: const Color(0xFF3B5998),
+              ),
               icon: Icon(
                 _isPlayingAudio ? Icons.stop_rounded : Icons.play_arrow_rounded,
-                color: AppColors.primaryBlue,
               ),
             ),
             IconButton(
               tooltip: 'Supprimer la note vocale',
               onPressed: _isSubmitting ? null : _supprimerAudio,
-              icon: const Icon(Icons.delete_outline, color: Colors.red),
+              style: IconButton.styleFrom(
+                foregroundColor: const Color(0xFFDC2626),
+              ),
+              icon: const Icon(Icons.delete_outline_rounded),
             ),
           ],
         ],
@@ -1223,7 +1375,7 @@ class _ProblemDetailsScreenState extends ConsumerState<ProblemDetailsScreen> {
                     const SizedBox(height: 20),
 
                     const Text(
-                      '4. Description ou note vocale (Optionnel)',
+                      '4. Description du problème (Optionnel)',
                       style: TextStyle(
                         fontFamily: 'Poppins',
                         fontSize: 13.5,
@@ -1282,7 +1434,6 @@ class _ProblemDetailsScreenState extends ConsumerState<ProblemDetailsScreen> {
                         color: AppColors.darkBlue,
                       ),
                     ),
-
                     const SizedBox(height: 10),
 
                     InkWell(
@@ -1291,87 +1442,103 @@ class _ProblemDetailsScreenState extends ConsumerState<ProblemDetailsScreen> {
                           : (_isRecording
                                 ? _arreterEnregistrementAudio
                                 : _demarrerEnregistrementAudio),
-                      borderRadius: BorderRadius.circular(16),
-                      child: Container(
+                      borderRadius: BorderRadius.circular(20),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 250),
                         width: double.infinity,
-                        constraints: const BoxConstraints(minHeight: 60),
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 12,
+                          horizontal: 16,
+                          vertical: 17,
                         ),
                         decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(16),
+                          color: _isRecording
+                              ? const Color(0xFFFFF1F2)
+                              : Colors.white,
+                          borderRadius: BorderRadius.circular(20),
                           border: Border.all(
                             color: _isRecording
-                                ? Colors.red.shade300
+                                ? const Color(0xFFFDA4AF)
                                 : const Color(0xFFE2E8F0),
                           ),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.02),
-                              blurRadius: 8,
-                              offset: const Offset(0, 2),
+                              color: Colors.black.withValues(alpha: 0.025),
+                              blurRadius: 12,
+                              offset: const Offset(0, 4),
                             ),
                           ],
                         ),
                         child: Row(
                           children: [
-                            Icon(
-                              _isRecording
-                                  ? Icons.stop_circle_rounded
-                                  : Icons.mic_none_rounded,
-                              color: _isRecording
-                                  ? Colors.red
-                                  : const Color(0xFF64748B),
-                              size: 24,
+                            AnimatedContainer(
+                              duration: const Duration(milliseconds: 250),
+                              width: 54,
+                              height: 54,
+                              decoration: BoxDecoration(
+                                color: _isRecording
+                                    ? const Color(0xFFDC2626)
+                                    : const Color(0xFF3B5998),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                _isRecording
+                                    ? Icons.stop_rounded
+                                    : Icons.mic_none_rounded,
+                                color: Colors.white,
+                                size: 27,
+                              ),
                             ),
-                            const SizedBox(width: 12),
+                            const SizedBox(width: 14),
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
-                                mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
                                   Text(
                                     _isRecording
-                                        ? 'Appuyer pour arrêter l’enregistrement'
+                                        ? 'Arrêter l’enregistrement'
                                         : _audioPath != null
-                                        ? 'Note vocale enregistrée'
-                                        : 'Appuyer pour enregistrer un vocal',
+                                        ? 'Enregistrer à nouveau'
+                                        : 'Enregistrer une note vocale',
                                     style: TextStyle(
                                       fontFamily: 'Inter',
-                                      fontSize: 12.5,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w700,
                                       color: _isRecording
-                                          ? Colors.red
-                                          : const Color(0xFF64748B),
-                                      fontWeight: FontWeight.w500,
+                                          ? const Color(0xFFBE123C)
+                                          : AppColors.darkBlue,
                                     ),
                                   ),
-                                  if (_isRecording) ...[
-                                    const SizedBox(height: 6),
-                                    Text(
-                                      '${_formaterDuree(_recordingDuration)} / 00:30',
-                                      style: const TextStyle(
-                                        fontFamily: 'Inter',
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w600,
-                                        color: Colors.red,
-                                      ),
+                                  const SizedBox(height: 5),
+                                  Text(
+                                    _isRecording
+                                        ? 'Touchez pour terminer • '
+                                              '${_formaterDuree(_recordingDuration)} / 00:30'
+                                        : _audioPath != null
+                                        ? 'Votre note est prête à être écoutée'
+                                        : 'Touchez pour démarrer • 30 s maximum',
+                                    style: const TextStyle(
+                                      fontFamily: 'Inter',
+                                      fontSize: 11,
+                                      height: 1.4,
+                                      color: AppColors.textSecondary,
                                     ),
-                                    const SizedBox(height: 5),
-                                    ClipRRect(
-                                      borderRadius: BorderRadius.circular(4),
-                                      child: LinearProgressIndicator(
-                                        value:
-                                            _recordingDuration.inSeconds / 30,
-                                        minHeight: 3,
-                                        backgroundColor: Colors.red.shade100,
-                                        color: Colors.red,
-                                      ),
-                                    ),
-                                  ],
+                                  ),
                                 ],
                               ),
+                            ),
+                            const SizedBox(width: 8),
+                            Icon(
+                              _isRecording
+                                  ? Icons.fiber_manual_record_rounded
+                                  : _audioPath != null
+                                  ? Icons.check_circle_rounded
+                                  : Icons.chevron_right_rounded,
+                              color: _isRecording
+                                  ? const Color(0xFFDC2626)
+                                  : _audioPath != null
+                                  ? const Color(0xFF16A34A)
+                                  : const Color(0xFF94A3B8),
+                              size: 23,
                             ),
                           ],
                         ),
