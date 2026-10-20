@@ -10,14 +10,16 @@ final signalementRepositoryProvider = Provider<SignalementRepository>((ref) {
   return SignalementRepository();
 });
 
-/// Récupère automatiquement l'identifiant du citoyen connecté.
+/// Récupère l'identifiant du citoyen connecté.
 final currentCitoyenIdProvider = FutureProvider<int?>((ref) async {
   return ref.read(authServiceProvider).getCurrentUserId();
 });
 
 /// Récupère les signalements d'un citoyen.
-final signalementsByCitoyenProvider =
-    FutureProvider.family<List<Signalement>, int>((ref, idCitoyen) {
+/// autoDispose permet de libérer les données lorsque
+/// le provider n'est plus utilisé.
+final signalementsByCitoyenProvider = FutureProvider.autoDispose
+    .family<List<Signalement>, int>((ref, idCitoyen) async {
       return ref
           .watch(signalementRepositoryProvider)
           .getSignalementsByCitoyen(idCitoyen);
@@ -54,7 +56,7 @@ class CreationSignalementNotifier extends AsyncNotifier<Signalement?> {
         );
       }
 
-      // Construire la requête avec l'identifiant réel de la session.
+      // Construire la requête avec l'identifiant réel du citoyen.
       final requestAvecCitoyenConnecte = SignalementRequest(
         typeUrgence: request.typeUrgence,
         description: request.description,
@@ -67,14 +69,20 @@ class CreationSignalementNotifier extends AsyncNotifier<Signalement?> {
         repereVisuel: request.repereVisuel,
       );
 
+      // Envoyer la requête au backend.
       final signalement = await ref
           .read(signalementRepositoryProvider)
           .creerSignalement(requestAvecCitoyenConnecte);
 
-      // Actualiser les listes de signalements.
-      ref.invalidate(signalementsByCitoyenProvider);
+      // Actualiser la liste du citoyen connecté.
+      ref.invalidate(signalementsByCitoyenProvider(citoyenId));
 
+      // Actualiser le détail du nouveau signalement si celui-ci est consulté.
+      ref.invalidate(signalementDetailProvider(signalement.idSignalement));
+
+      // Enregistrer le résultat de la création.
       state = AsyncData(signalement);
+
       return signalement;
     } catch (error, stackTrace) {
       state = AsyncError(error, stackTrace);

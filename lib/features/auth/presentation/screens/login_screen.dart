@@ -208,14 +208,60 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       return 'Connexion impossible. Veuillez réessayer.';
     }
 
-    var message = error.toString();
+    // ApiException.toString() renvoie déjà son message.
+    var message = error.toString().trim();
 
-    message = message.replaceFirst('Exception: ', '').trim();
-
-    if (message.isEmpty || message == 'null') {
-      return 'Connexion impossible. Vérifiez vos identifiants.';
+    // Retire les préfixes courants des exceptions.
+    for (final prefix in ['Exception: ', 'ApiException: ']) {
+      if (message.startsWith(prefix)) {
+        message = message.substring(prefix.length).trim();
+      }
     }
 
+    if (message.isEmpty || message == 'null') {
+      return 'Connexion impossible. Veuillez réessayer.';
+    }
+
+    final normalized = message.toLowerCase();
+
+    // Mauvais identifiants : messages fréquents du backend.
+    if (normalized.contains('bad credentials') ||
+        normalized.contains('invalid credentials') ||
+        normalized.contains('identifiants incorrects') ||
+        normalized.contains('utilisateur non trouvé') ||
+        normalized.contains('username not found') ||
+        normalized.contains('mot de passe incorrect') ||
+        normalized.contains('numéro de téléphone incorrect')) {
+      return 'Numéro de téléphone ou mot de passe incorrect.';
+    }
+
+    // Compte désactivé.
+    if (normalized.contains('compte désactivé') ||
+        normalized.contains('compte desactive') ||
+        normalized.contains('account is disabled') ||
+        normalized.contains('user is disabled')) {
+      return "Votre compte est désactivé. Veuillez contacter l'administration.";
+    }
+
+    // Profil non autorisé : conserver le message précis du backend.
+    if (normalized.contains('profil') &&
+        (normalized.contains('pas autorisé') ||
+            normalized.contains('pas autorise') ||
+            normalized.contains('not authorized'))) {
+      return message;
+    }
+
+    // Erreurs de connexion réseau.
+    if (normalized.contains('socketexception') ||
+        normalized.contains('connection refused') ||
+        normalized.contains('connection error') ||
+        normalized.contains('failed host lookup') ||
+        normalized.contains('timed out') ||
+        normalized.contains('timeout')) {
+      return 'Impossible de contacter le serveur. Vérifiez votre connexion Internet.';
+    }
+
+    // Conserver le message fourni par le backend ou l'API.
     return message;
   }
 

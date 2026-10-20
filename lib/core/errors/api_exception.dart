@@ -11,32 +11,38 @@ class ApiException implements Exception {
           message: 'Les données envoyées sont invalides.',
           statusCode: 400,
         );
+
       case 401:
         return const ApiException(
-          message: 'Vous devez vous connecter.',
+          message: 'Numéro de téléphone ou mot de passe incorrect.',
           statusCode: 401,
         );
+
       case 403:
         return const ApiException(
-          message: 'Vous n’avez pas la permission d’effectuer cette action.',
+          message: "L'accès à cette fonctionnalité est refusé.",
           statusCode: 403,
         );
+
       case 404:
         return const ApiException(
           message: 'La ressource demandée est introuvable.',
           statusCode: 404,
         );
+
       case 409:
         return const ApiException(
           message:
               'Cette opération entre en conflit avec les données existantes.',
           statusCode: 409,
         );
+
       case 500:
         return const ApiException(
           message: 'Une erreur est survenue sur le serveur.',
           statusCode: 500,
         );
+
       default:
         return ApiException(
           message: statusCode == null

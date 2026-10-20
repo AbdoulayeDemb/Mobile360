@@ -22,8 +22,8 @@ class Actualite {
   factory Actualite.fromJson(Map<String, dynamic> json) {
     return Actualite(
       idActualite: (json['idActualite'] as num).toInt(),
-      titre: json['titre'] as String,
-      corpsTexte: json['corpsTexte'] as String,
+      titre: json['titre'] as String? ?? 'Sans titre',
+      corpsTexte: json['corpsTexte'] as String? ?? '',
       communeCible: json['communeCible'] as String?,
       estUrgent: json['estUrgent'] as bool? ?? false,
       datePublication: DateTime.tryParse(

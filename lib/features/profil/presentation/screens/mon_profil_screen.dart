@@ -1,6 +1,7 @@
- import 'package:alert360_mobile/features/auth/data/services/citoyen_service.dart';
+import 'package:alert360_mobile/features/auth/data/services/citoyen_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
@@ -22,6 +23,7 @@ class _MonProfilScreenState extends ConsumerState<MonProfilScreen> {
   bool _chargement = true;
   bool _modification = false;
   bool _enregistrement = false;
+  bool _deconnexionEnCours = false;
 
   String? _erreur;
 
@@ -48,29 +50,150 @@ class _MonProfilScreenState extends ConsumerState<MonProfilScreen> {
     super.dispose();
   }
 
-  // Récupérer l'identifiant du compte connecté.
   int? _obtenirIdUtilisateur() {
     return ref.read(authControllerProvider).asData?.value?.idUtilisateur;
   }
 
-  // Charger les informations depuis le backend.
-  Future<void> _chargerProfil() async {
-    final userId = _obtenirIdUtilisateur();
+  Future<void> _afficherPopup({
+    required String titre,
+    required String message,
+    required IconData icone,
+    Color couleur = AppColors.primaryBlue,
+    String texteBouton = 'Compris',
+  }) async {
+    if (!mounted) return;
 
-    if (userId == null) {
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return Dialog(
+          backgroundColor: Colors.white,
+          surfaceTintColor: Colors.transparent,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(24, 28, 24, 22),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 76,
+                  height: 76,
+                  decoration: BoxDecoration(
+                    color: couleur.withValues(alpha: 0.10),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(icone, size: 38, color: couleur),
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  titre,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: Color(0xFF172B4D),
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  message,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: Color(0xFF64748B),
+                    fontSize: 14,
+                    height: 1.6,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    onPressed: () => Navigator.pop(dialogContext),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: couleur,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 15),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                    child: Text(
+                      texteBouton,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _afficherMessage(String message, {bool erreur = false}) {
+    _afficherPopup(
+      titre: erreur ? 'Une erreur est survenue' : 'Information',
+      message: message,
+      icone: erreur ? Icons.error_outline_rounded : Icons.info_outline_rounded,
+      couleur: erreur ? const Color(0xFFDC2626) : AppColors.primaryBlue,
+    );
+  }
+
+  Future<void> _chargerProfil() async {
+    final authState = ref.read(authControllerProvider);
+
+    // Attendre que le contrôleur ait terminé la restauration de session.
+    if (authState.isLoading) {
+      try {
+        await ref.read(authControllerProvider.future);
+      } catch (_) {
+        if (!mounted) return;
+
+        setState(() {
+          _chargement = false;
+          _erreur = 'Impossible de vérifier votre session.';
+        });
+        return;
+      }
+    }
+
+    final auth = ref.read(authControllerProvider).asData?.value;
+
+    if (auth == null) {
       if (!mounted) return;
 
       setState(() {
         _chargement = false;
-        _erreur = 'Impossible de retrouver votre compte connecté.';
+        _erreur = 'Votre session a expiré. Veuillez vous reconnecter.';
+      });
+
+      if (mounted) context.go('/login');
+      return;
+    }
+
+    if (auth.role?.toUpperCase() != 'CITOYEN') {
+      if (!mounted) return;
+
+      setState(() {
+        _chargement = false;
+        _erreur = 'Cet écran est réservé aux comptes citoyens.';
       });
       return;
     }
 
+    final userId = auth.idUtilisateur;
+
     try {
       final citoyen = await ref
           .read(citoyenServiceProvider)
-          .getCitoyenById(userId);
+          .getCitoyenById(userId!);
 
       if (!mounted) return;
 
@@ -79,7 +202,7 @@ class _MonProfilScreenState extends ConsumerState<MonProfilScreen> {
         _remplirFormulaire(citoyen);
         _erreur = null;
       });
-    } catch (e) {
+    } catch (_) {
       if (!mounted) return;
 
       setState(() {
@@ -100,16 +223,22 @@ class _MonProfilScreenState extends ConsumerState<MonProfilScreen> {
     _quartierController.text = citoyen['quartier']?.toString() ?? '';
   }
 
-  // Enregistrer les modifications du profil.
   Future<void> _enregistrerProfil() async {
-    if (_enregistrement) return;
+    if (_enregistrement || _deconnexionEnCours) return;
 
     if (!_formKey.currentState!.validate()) return;
 
     final userId = _obtenirIdUtilisateur();
 
     if (userId == null) {
-      _afficherMessage('Identifiant utilisateur introuvable.', erreur: true);
+      await _afficherPopup(
+        titre: 'Session introuvable',
+        message: 'Veuillez vous reconnecter pour modifier votre profil.',
+        icone: Icons.error_outline_rounded,
+        couleur: const Color(0xFFDC2626),
+      );
+
+      if (mounted) context.go('/login');
       return;
     }
 
@@ -139,14 +268,27 @@ class _MonProfilScreenState extends ConsumerState<MonProfilScreen> {
         _modification = false;
       });
 
-      _afficherMessage('Votre profil a été modifié avec succès.');
-    } catch (e) {
+      await _afficherPopup(
+        titre: 'Profil mis à jour !',
+        message:
+            'Vos informations personnelles ont été modifiées avec succès. '
+            'Votre profil Alert360 est maintenant à jour.',
+        icone: Icons.check_circle_outline_rounded,
+        couleur: AppColors.primaryBlue,
+        texteBouton: 'Continuer',
+      );
+    } catch (_) {
       if (!mounted) return;
 
-      _afficherMessage(
-        'Échec de la modification du profil. Vérifiez les informations '
-        'saisies et réessayez.',
-        erreur: true,
+      await _afficherPopup(
+        titre: 'Modification impossible',
+        message:
+            'Nous n’avons pas pu mettre à jour votre profil. '
+            'Vérifiez votre connexion et les informations saisies, '
+            'puis réessayez.',
+        icone: Icons.error_outline_rounded,
+        couleur: const Color(0xFFDC2626),
+        texteBouton: 'Réessayer',
       );
     } finally {
       if (mounted) {
@@ -155,16 +297,6 @@ class _MonProfilScreenState extends ConsumerState<MonProfilScreen> {
     }
   }
 
-  void _afficherMessage(String message, {bool erreur = false}) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: erreur ? Colors.red.shade700 : Colors.green.shade700,
-      ),
-    );
-  }
-
-  // Annuler la modification et restaurer les valeurs initiales.
   void _annulerModification() {
     if (_enregistrement) return;
 
@@ -176,25 +308,89 @@ class _MonProfilScreenState extends ConsumerState<MonProfilScreen> {
     });
   }
 
-  // Confirmer la déconnexion.
   Future<void> _confirmerDeconnexion() async {
+    if (_deconnexionEnCours || _enregistrement) return;
+
     final confirmation = await showDialog<bool>(
       context: context,
+      barrierDismissible: false,
       builder: (dialogContext) {
         return AlertDialog(
-          title: const Text('Déconnexion'),
-          content: const Text(
-            'Voulez-vous vraiment vous déconnecter de votre compte ?',
+          backgroundColor: Colors.white,
+          surfaceTintColor: Colors.transparent,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(22),
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext, false),
-              child: const Text('Annuler'),
+          contentPadding: const EdgeInsets.fromLTRB(24, 26, 24, 20),
+          title: const Column(
+            children: [
+              CircleAvatar(
+                radius: 34,
+                backgroundColor: Color(0xFFFFE8E8),
+                child: Icon(
+                  Icons.logout_rounded,
+                  color: Color(0xFFDC2626),
+                  size: 32,
+                ),
+              ),
+              SizedBox(height: 18),
+              Text(
+                'Se déconnecter ?',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Color(0xFF172B4D),
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+          content: const Text(
+            'Voulez-vous vraiment vous déconnecter de votre compte Alert360 ? '
+            'Vous devrez vous reconnecter pour accéder à votre espace personnel.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Color(0xFF64748B),
+              fontSize: 14,
+              height: 1.6,
             ),
-            FilledButton(
-              style: FilledButton.styleFrom(backgroundColor: Colors.red),
-              onPressed: () => Navigator.pop(dialogContext, true),
-              child: const Text('Me déconnecter'),
+          ),
+          actionsAlignment: MainAxisAlignment.center,
+          actions: [
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton(
+                onPressed: () => Navigator.pop(dialogContext, false),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFF334155),
+                  side: const BorderSide(color: Color(0xFFCBD5E1)),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(13),
+                  ),
+                ),
+                child: const Text(
+                  'Annuler',
+                  style: TextStyle(fontWeight: FontWeight.w600),
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: () => Navigator.pop(dialogContext, true),
+                icon: const Icon(Icons.logout_rounded, size: 19),
+                label: const Text('Me déconnecter'),
+                style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFFDC2626),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(13),
+                  ),
+                ),
+              ),
             ),
           ],
         );
@@ -203,17 +399,30 @@ class _MonProfilScreenState extends ConsumerState<MonProfilScreen> {
 
     if (confirmation != true || !mounted) return;
 
+    setState(() => _deconnexionEnCours = true);
+
     try {
       await ref.read(authControllerProvider.notifier).logout();
 
       if (!mounted) return;
 
-      // Le routeur doit rediriger vers la connexion lorsque la session
-      // devient null. Sinon, ajoute ici la navigation vers ta route login.
-    } catch (e) {
+      context.go('/login');
+    } catch (_) {
       if (!mounted) return;
 
-      _afficherMessage('La déconnexion a rencontré un problème.', erreur: true);
+      await _afficherPopup(
+        titre: 'Déconnexion impossible',
+        message:
+            'Une erreur est survenue lors de la fermeture de votre session. '
+            'Veuillez réessayer.',
+        icone: Icons.error_outline_rounded,
+        couleur: const Color(0xFFDC2626),
+        texteBouton: 'Réessayer',
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _deconnexionEnCours = false);
+      }
     }
   }
 
@@ -287,7 +496,6 @@ class _MonProfilScreenState extends ConsumerState<MonProfilScreen> {
           children: [
             _carteIdentite(citoyen),
             const SizedBox(height: 24),
-
             if (_modification)
               _formulaireModification()
             else ...[
@@ -295,12 +503,9 @@ class _MonProfilScreenState extends ConsumerState<MonProfilScreen> {
               const SizedBox(height: 12),
               _carteInformations(citoyen),
             ],
-
             const SizedBox(height: 24),
-
             _titreSection('Compte et sécurité'),
             const SizedBox(height: 12),
-
             _elementAction(
               icone: Icons.person_outline,
               titre: 'Modifier mon profil',
@@ -312,27 +517,23 @@ class _MonProfilScreenState extends ConsumerState<MonProfilScreen> {
                 });
               },
             ),
-
-            _elementAction(
-              icone: Icons.lock_outline,
-              titre: 'Sécurité du compte',
-              sousTitre: 'Gérer votre mot de passe',
-              onTap: () {
-                _afficherMessage(
-                  'La modification du mot de passe nécessite '
-                  'un endpoint sécurisé côté backend.',
-                );
-              },
-            ),
-
             const SizedBox(height: 20),
-
             OutlinedButton.icon(
-              onPressed: _confirmerDeconnexion,
-              icon: const Icon(Icons.logout, color: Colors.red),
-              label: const Text(
-                'Se déconnecter',
-                style: TextStyle(
+              onPressed: _enregistrement || _deconnexionEnCours
+                  ? null
+                  : _confirmerDeconnexion,
+              icon: _deconnexionEnCours
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.logout, color: Colors.red),
+              label: Text(
+                _deconnexionEnCours
+                    ? 'Déconnexion en cours...'
+                    : 'Se déconnecter',
+                style: const TextStyle(
                   color: Colors.red,
                   fontWeight: FontWeight.w600,
                 ),
@@ -532,27 +733,63 @@ class _MonProfilScreenState extends ConsumerState<MonProfilScreen> {
   }) {
     return Card(
       color: Colors.white,
+      surfaceTintColor: Colors.transparent,
       elevation: 0,
       margin: const EdgeInsets.only(bottom: 10),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: const BorderSide(color: Color(0xFFE8EDF5)),
+        side: const BorderSide(color: Color(0xFFE2E8F0)),
       ),
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-        leading: Container(
-          width: 44,
-          height: 44,
-          decoration: BoxDecoration(
-            color: const Color(0xFFEDF3FB),
-            borderRadius: BorderRadius.circular(13),
+      child: InkWell(
+        onTap: _enregistrement || _deconnexionEnCours ? null : onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
+          child: Row(
+            children: [
+              Container(
+                width: 46,
+                height: 46,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE8F0FF),
+                  borderRadius: BorderRadius.circular(13),
+                ),
+                child: Icon(icone, color: AppColors.primaryBlue, size: 24),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      titre,
+                      style: const TextStyle(
+                        color: Color(0xFF1E293B),
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 5),
+                    Text(
+                      sousTitre,
+                      style: const TextStyle(
+                        color: Color(0xFF64748B),
+                        fontSize: 12,
+                        height: 1.4,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              const Icon(
+                Icons.chevron_right_rounded,
+                color: Color(0xFF64748B),
+                size: 24,
+              ),
+            ],
           ),
-          child: Icon(icone, color: AppColors.primaryBlue),
         ),
-        title: Text(titre, style: const TextStyle(fontWeight: FontWeight.w600)),
-        subtitle: Text(sousTitre),
-        trailing: const Icon(Icons.chevron_right),
-        onTap: onTap,
       ),
     );
   }
@@ -562,8 +799,15 @@ class _MonProfilScreenState extends ConsumerState<MonProfilScreen> {
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFE8EDF5)),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFE1E8F0)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.035),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Form(
         key: _formKey,
@@ -571,8 +815,12 @@ class _MonProfilScreenState extends ConsumerState<MonProfilScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _titreSection('Modifier mes informations'),
-            const SizedBox(height: 18),
-
+            const SizedBox(height: 6),
+            const Text(
+              'Mettez à jour les informations de votre compte.',
+              style: TextStyle(fontSize: 13, color: Color(0xFF64748B)),
+            ),
+            const SizedBox(height: 22),
             _champ('Nom', _nomController, obligatoire: true),
             _champ('Prénom', _prenomController, obligatoire: true),
             _champ(
@@ -583,15 +831,25 @@ class _MonProfilScreenState extends ConsumerState<MonProfilScreen> {
             ),
             _champ('Email', _emailController, email: true),
             _champ('Quartier', _quartierController, obligatoire: true),
-
-            const SizedBox(height: 10),
-
+            const SizedBox(height: 8),
             Row(
               children: [
                 Expanded(
                   child: OutlinedButton(
                     onPressed: _enregistrement ? null : _annulerModification,
-                    child: const Text('Annuler'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFF334155),
+                      backgroundColor: Colors.white,
+                      side: const BorderSide(color: Color(0xFFCBD5E1)),
+                      padding: const EdgeInsets.symmetric(vertical: 15),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: const Text(
+                      'Annuler',
+                      style: TextStyle(fontWeight: FontWeight.w600),
+                    ),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -600,17 +858,27 @@ class _MonProfilScreenState extends ConsumerState<MonProfilScreen> {
                     onPressed: _enregistrement ? null : _enregistrerProfil,
                     style: FilledButton.styleFrom(
                       backgroundColor: AppColors.primaryBlue,
+                      foregroundColor: Colors.white,
+                      disabledBackgroundColor: const Color(0xFF94A3B8),
+                      disabledForegroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 15),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
                     child: _enregistrement
                         ? const SizedBox(
-                            width: 18,
-                            height: 18,
+                            width: 20,
+                            height: 20,
                             child: CircularProgressIndicator(
-                              strokeWidth: 2,
+                              strokeWidth: 2.2,
                               color: Colors.white,
                             ),
                           )
-                        : const Text('Enregistrer'),
+                        : const Text(
+                            'Enregistrer',
+                            style: TextStyle(fontWeight: FontWeight.w700),
+                          ),
                   ),
                 ),
               ],
@@ -628,10 +896,28 @@ class _MonProfilScreenState extends ConsumerState<MonProfilScreen> {
     bool email = false,
     bool telephone = false,
   }) {
+    const borderColor = Color(0xFFD6DFEA);
+    const textColor = Color(0xFF1E293B);
+    const labelColor = Color(0xFF64748B);
+
+    OutlineInputBorder buildBorder(Color color, {double width = 1}) {
+      return OutlineInputBorder(
+        borderRadius: BorderRadius.circular(13),
+        borderSide: BorderSide(color: color, width: width),
+      );
+    }
+
     return Padding(
-      padding: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.only(bottom: 16),
       child: TextFormField(
         controller: controller,
+        enabled: !_enregistrement,
+        style: const TextStyle(
+          color: textColor,
+          fontSize: 15,
+          fontWeight: FontWeight.w500,
+        ),
+        cursorColor: AppColors.primaryBlue,
         keyboardType: telephone
             ? TextInputType.phone
             : email
@@ -639,18 +925,23 @@ class _MonProfilScreenState extends ConsumerState<MonProfilScreen> {
             : TextInputType.text,
         decoration: InputDecoration(
           labelText: label,
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: Color(0xFFDCE3EE)),
+          labelStyle: const TextStyle(color: labelColor),
+          floatingLabelStyle: const TextStyle(
+            color: AppColors.primaryBlue,
+            fontWeight: FontWeight.w600,
           ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(
-              color: AppColors.primaryBlue,
-              width: 1.5,
-            ),
+          filled: true,
+          fillColor: _enregistrement ? const Color(0xFFF1F5F9) : Colors.white,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 15,
+            vertical: 17,
           ),
+          border: buildBorder(borderColor),
+          enabledBorder: buildBorder(borderColor),
+          focusedBorder: buildBorder(AppColors.primaryBlue, width: 1.7),
+          disabledBorder: buildBorder(const Color(0xFFE2E8F0)),
+          errorBorder: buildBorder(Colors.red.shade600),
+          focusedErrorBorder: buildBorder(Colors.red.shade600, width: 1.5),
         ),
         validator: (value) {
           final texte = value?.trim() ?? '';

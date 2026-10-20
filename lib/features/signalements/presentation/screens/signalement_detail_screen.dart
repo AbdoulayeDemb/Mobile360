@@ -652,6 +652,7 @@ class _SignalementDetailScreenState
     final audioUrl = MediaUrlHelper.construireUrl(signalement.audioUrl);
     final audioDisponible = audioUrl.isNotEmpty;
     final audioEnCours = _audioUrlChargee == audioUrl && _isPlayingAudio;
+    final audioEnChargement = _audioUrlChargee == audioUrl && _isLoadingAudio;
 
     return Container(
       padding: const EdgeInsets.all(18),
@@ -659,6 +660,13 @@ class _SignalementDetailScreenState
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: _borderColor),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.025),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -667,73 +675,127 @@ class _SignalementDetailScreenState
             children: [
               Icon(Icons.mic_none_rounded, color: _primaryColor, size: 22),
               SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Note vocale',
+                  style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w700,
+                    color: _textColor,
+                  ),
+                ),
+              ),
               Text(
-                'Note vocale',
+                'AUDIO',
                 style: TextStyle(
-                  fontSize: 17,
+                  fontSize: 10,
                   fontWeight: FontWeight.w700,
-                  color: _textColor,
+                  letterSpacing: 1,
+                  color: _secondaryTextColor,
                 ),
               ),
             ],
           ),
           const SizedBox(height: 16),
-          Container(
+
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 250),
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: _backgroundColor,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: _borderColor),
+              color: audioEnCours ? const Color(0xFFEFF6FF) : _backgroundColor,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(
+                color: audioEnCours ? const Color(0xFFBFDBFE) : _borderColor,
+              ),
             ),
             child: Row(
               children: [
                 Container(
-                  width: 44,
-                  height: 44,
+                  width: 54,
+                  height: 54,
                   decoration: BoxDecoration(
                     color: audioDisponible
-                        ? _primaryColor.withValues(alpha: 0.10)
+                        ? _primaryColor
                         : const Color(0xFFE2E8F0),
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
                     audioDisponible
-                        ? Icons.audiotrack_rounded
+                        ? Icons.graphic_eq_rounded
                         : Icons.mic_off_outlined,
-                    color: audioDisponible
-                        ? _primaryColor
-                        : _secondaryTextColor,
+                    color: audioDisponible ? Colors.white : _secondaryTextColor,
+                    size: 26,
                   ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 13),
+
                 Expanded(
-                  child: Text(
-                    !audioDisponible
-                        ? 'Aucune note vocale disponible'
-                        : _isLoadingAudio && _audioUrlChargee == audioUrl
-                        ? 'Chargement de l’enregistrement…'
-                        : audioEnCours
-                        ? 'Lecture en cours…'
-                        : 'Enregistrement disponible',
-                    style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                      color: _textColor,
-                    ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        !audioDisponible
+                            ? 'Aucun audio disponible'
+                            : audioEnChargement
+                            ? 'Chargement de l’audio…'
+                            : audioEnCours
+                            ? 'Lecture en cours'
+                            : 'Enregistrement disponible',
+                        style: const TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w700,
+                          color: _textColor,
+                        ),
+                      ),
+                      const SizedBox(height: 5),
+                      Text(
+                        !audioDisponible
+                            ? 'Aucune note vocale n’a été jointe.'
+                            : audioEnChargement
+                            ? 'Préparation de la lecture'
+                            : audioEnCours
+                            ? 'Écoutez la description du citoyen.'
+                            : 'Touchez le bouton pour écouter.',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          height: 1.4,
+                          color: _secondaryTextColor,
+                        ),
+                      ),
+                      if (audioEnChargement) ...[
+                        const SizedBox(height: 9),
+                        const LinearProgressIndicator(
+                          minHeight: 3,
+                          borderRadius: BorderRadius.all(Radius.circular(8)),
+                          color: _primaryColor,
+                          backgroundColor: Color(0xFFDBEAFE),
+                        ),
+                      ],
+                    ],
                   ),
                 ),
+                const SizedBox(width: 8),
+
                 if (audioDisponible)
                   IconButton(
                     tooltip: audioEnCours ? 'Mettre en pause' : 'Écouter',
-                    onPressed: _isLoadingAudio
+                    onPressed: audioEnChargement
                         ? null
                         : () => _basculerLectureAudio(audioUrl),
+                    style: IconButton.styleFrom(
+                      backgroundColor: const Color(0xFF3B5998),
+                      foregroundColor: Colors.white,
+                      disabledBackgroundColor: const Color(0xFF94A3B8),
+                      disabledForegroundColor: Colors.white,
+                      fixedSize: const Size(48, 48),
+                    ),
                     icon: Icon(
-                      audioEnCours
-                          ? Icons.pause_circle_filled_rounded
-                          : Icons.play_circle_fill_rounded,
-                      color: _primaryColor,
-                      size: 34,
+                      audioEnChargement
+                          ? Icons.hourglass_top_rounded
+                          : audioEnCours
+                          ? Icons.pause_rounded
+                          : Icons.play_arrow_rounded,
+                      size: 26,
                     ),
                   ),
               ],
