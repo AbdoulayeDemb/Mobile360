@@ -7,6 +7,7 @@ class Actualite {
   final DateTime? datePublication;
   final int? idAdminAuteur;
   final String? nomAdminAuteur;
+  final String? imageUrl;
 
   const Actualite({
     required this.idActualite,
@@ -17,6 +18,7 @@ class Actualite {
     this.datePublication,
     this.idAdminAuteur,
     this.nomAdminAuteur,
+    this.imageUrl,
   });
 
   factory Actualite.fromJson(Map<String, dynamic> json) {
@@ -31,6 +33,9 @@ class Actualite {
       ),
       idAdminAuteur: (json['idAdminAuteur'] as num?)?.toInt(),
       nomAdminAuteur: json['nomAdminAuteur'] as String?,
+      imageUrl: (json['imageUrl'] as String?)?.trim().isNotEmpty == true
+          ? (json['imageUrl'] as String).trim()
+          : null,
     );
   }
 
@@ -44,6 +49,7 @@ class Actualite {
       'datePublication': datePublication?.toIso8601String(),
       'idAdminAuteur': idAdminAuteur,
       'nomAdminAuteur': nomAdminAuteur,
+      'imageUrl': imageUrl,
     };
   }
 }

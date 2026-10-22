@@ -18,4 +18,20 @@ class UtilisateurService {
       'Format de réponse inattendu lors de la récupération du profil.',
     );
   }
+
+  Future<Map<String, dynamic>> getMonProfil() async {
+    final response = await ApiService.get('/api/utilisateurs/me');
+
+    if (response is Map<String, dynamic>) {
+      return response;
+    }
+
+    if (response is Map) {
+      return Map<String, dynamic>.from(response);
+    }
+
+    throw Exception(
+      'Format de réponse inattendu lors de la récupération du profil.',
+    );
+  }
 }

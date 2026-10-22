@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/storage/secure_storage_service.dart';
@@ -6,6 +7,7 @@ import '../../data/models/utilisateur.dart';
 import '../../data/repositories/auth_repository.dart';
 import '../../data/services/auth_service.dart';
 import '../../data/services/utilisateur_service.dart';
+import '../../data/models/citoyen_request.dart';
 
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
   return AuthRepository();
@@ -25,36 +27,70 @@ final authControllerProvider =
 class AuthController extends AsyncNotifier<AuthResponse?> {
   @override
   Future<AuthResponse?> build() async {
-    final authService = ref.read(authServiceProvider);
-
-    // Aucune session enregistrée.
-    if (!await authService.hasSession()) {
-      return null;
-    }
-
-    final userId = await authService.getCurrentUserId();
-    final token = await SecureStorageService.getToken();
-
-    // Une session incomplète ne peut pas être restaurée.
-    if (userId == null || token == null || token.trim().isEmpty) {
-      await _clearSessionSafely();
-      return null;
-    }
+    debugPrint('=== RESTAURATION SESSION : DÉBUT ===');
 
     try {
-      final response = await ref
-          .read(utilisateurServiceProvider)
-          .getUtilisateurById(userId);
+      final authService = ref.read(authServiceProvider);
 
-      if (response is! Map) {
-        // La réponse est invalide : ne pas considérer la session restaurée.
+      // Vérifier si une session existe localement.
+      final hasSession = await authService.hasSession();
+
+      debugPrint('SESSION : TOKEN PRÉSENT = $hasSession');
+
+      if (!hasSession) {
+        debugPrint('SESSION : AUCUNE SESSION ENREGISTRÉE');
         return null;
       }
 
-      final utilisateur = Utilisateur.fromJson(
-        Map<String, dynamic>.from(response),
+      // Récupérer l'identifiant et le token enregistrés.
+      final userId = await authService.getCurrentUserId();
+      final token = await SecureStorageService.getToken();
+
+      debugPrint('SESSION : ID = $userId');
+      debugPrint(
+        'SESSION : TOKEN PRÉSENT = '
+        '${token != null && token.trim().isNotEmpty}',
       );
 
+      // Vérifier les données locales.
+      if (userId == null ||
+          userId <= 0 ||
+          token == null ||
+          token.trim().isEmpty) {
+        debugPrint('SESSION : DONNÉES LOCALES INCOMPLÈTES');
+        await _clearSessionSafely();
+        return null;
+      }
+
+      debugPrint('SESSION : RÉCUPÉRATION DU PROFIL...');
+
+      // IMPORTANT :
+      // Le backend identifie l'utilisateur depuis son token JWT.
+      // On ne demande plus /api/utilisateurs/{id}.
+      final response = await ref
+          .read(utilisateurServiceProvider)
+          .getMonProfil();
+
+      debugPrint('SESSION : RÉPONSE DU PROFIL REÇUE');
+
+      final Map<String, dynamic> json;
+
+      if (response is Map<String, dynamic>) {
+        json = response;
+      } else if (response is Map) {
+        json = Map<String, dynamic>.from(response);
+      } else {
+        debugPrint('SESSION : FORMAT DE PROFIL INVALIDE');
+        return null;
+      }
+
+      final utilisateur = Utilisateur.fromJson(json);
+
+      debugPrint('SESSION : PROFIL PARSÉ');
+      debugPrint('SESSION : RÔLE = ${utilisateur.role}');
+      debugPrint('SESSION : COMPTE ACTIF = ${utilisateur.estActif}');
+
+      // Reconstruire l'objet d'authentification.
       final auth = AuthResponse(
         token: token,
         type: 'Bearer',
@@ -70,20 +106,29 @@ class AuthController extends AsyncNotifier<AuthResponse?> {
         estResponsable: utilisateur.estResponsable,
       );
 
+      // Vérifier que le compte est autorisé sur mobile.
       if (!_isAuthorizedForMobile(auth)) {
+        debugPrint('SESSION : COMPTE INACTIF OU RÔLE NON AUTORISÉ');
         await _clearSessionSafely();
         return null;
       }
 
+      debugPrint('=== RESTAURATION SESSION : SUCCÈS ===');
+
       return auth;
-    } catch (_) {
-      // Une erreur réseau temporaire ne doit pas effacer le token.
-      // L'état reste toutefois non authentifié dans cette version.
+    } catch (error, stackTrace) {
+      // Ne pas supprimer les identifiants locaux sur une erreur
+      // temporaire ou une erreur serveur.
+      debugPrint('=== ERREUR RESTAURATION SESSION ===');
+      debugPrint('TYPE : ${error.runtimeType}');
+      debugPrint('DÉTAIL : $error');
+      debugPrintStack(stackTrace: stackTrace);
+
       return null;
     }
   }
 
-  /// Vérifie si le profil est autorisé à utiliser l'application mobile.
+  /// Vérifie si le profil peut utiliser l'application mobile.
   bool _isAuthorizedForMobile(AuthResponse auth) {
     if (auth.estActif != true) {
       return false;
@@ -102,16 +147,16 @@ class AuthController extends AsyncNotifier<AuthResponse?> {
     return false;
   }
 
-  /// Supprime la session locale sans propager les erreurs de nettoyage.
+  /// Nettoie la session lorsque cela est nécessaire.
   Future<void> _clearSessionSafely() async {
     try {
       await ref.read(authRepositoryProvider).logout();
-    } catch (_) {
-      // Le nettoyage ne doit pas faire planter le contrôleur.
+    } catch (error) {
+      debugPrint('ERREUR NETTOYAGE SESSION : $error');
     }
   }
 
-  /// Connexion d'un citoyen ou d'un agent de terrain autorisé.
+  /// Connexion.
   Future<void> login({
     required String telephone,
     required String motDePasse,
@@ -123,11 +168,9 @@ class AuthController extends AsyncNotifier<AuthResponse?> {
           .read(authRepositoryProvider)
           .login(telephone: telephone, motDePasse: motDePasse);
 
-      // Le repository enregistre déjà la session.
       if (!_isAuthorizedForMobile(auth)) {
         await _clearSessionSafely();
-
-        state = AsyncData(null);
+        state = const AsyncData(null);
 
         throw Exception(
           "Accès refusé : ce profil n'est pas autorisé "
@@ -135,21 +178,48 @@ class AuthController extends AsyncNotifier<AuthResponse?> {
         );
       }
 
-      // Publier immédiatement la session authentifiée.
       state = AsyncData(auth);
+
+      debugPrint('CONNEXION : SESSION ENREGISTRÉE ET ACTIVE');
     } catch (error, stackTrace) {
-      // Ne pas laisser l'état bloqué en chargement.
       state = AsyncError(error, stackTrace);
       rethrow;
     }
   }
 
-  /// Déconnexion et suppression de la session locale.
+  /// Inscription et connexion automatique.
+  Future<void> register({required CitoyenRequest request}) async {
+    state = const AsyncLoading();
+
+    try {
+      final auth = await ref
+          .read(authRepositoryProvider)
+          .register(request: request);
+
+      if (!_isAuthorizedForMobile(auth)) {
+        await _clearSessionSafely();
+        state = const AsyncData(null);
+
+        throw Exception(
+          "Ce profil n'est pas autorisé à utiliser "
+          "l'application mobile Alert'360.",
+        );
+      }
+
+      state = AsyncData(auth);
+
+      debugPrint('INSCRIPTION : SESSION ENREGISTRÉE ET ACTIVE');
+    } catch (error, stackTrace) {
+      state = AsyncError(error, stackTrace);
+      rethrow;
+    }
+  }
+
+  /// Déconnexion volontaire.
   Future<void> logout() async {
     try {
       await ref.read(authRepositoryProvider).logout();
     } finally {
-      // Le routeur peut observer cet état et rediriger vers /login.
       state = const AsyncData(null);
     }
   }

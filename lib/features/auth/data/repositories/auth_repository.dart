@@ -49,10 +49,7 @@ class AuthRepository {
     return auth;
   }
 
-  /// Inscription d'un nouveau citoyen.
-  ///
-  /// Cette méthode ne sauvegarde pas de session, car le backend
-  /// actuel ne renvoie pas de token JWT lors de l'inscription.
+  /// Inscription d'un citoyen avec connexion automatique.
   Future<AuthResponse> register({required CitoyenRequest request}) async {
     final response = await ApiService.post(
       '/api/auth/register/citoyen',
@@ -80,7 +77,20 @@ class AuthRepository {
       );
     }
 
-    return apiResponse.data!;
+    final auth = apiResponse.data!;
+
+    // Le backend doit avoir renvoyé un JWT valide.
+    if (auth.token.trim().isEmpty) {
+      throw const FormatException(
+        "L'inscription a réussi, mais aucun token d'authentification "
+        "n'a été renvoyé par le serveur.",
+      );
+    }
+
+    // Sauvegarder le token et l'identifiant du citoyen.
+    await _authService.saveSession(auth);
+
+    return auth;
   }
 
   Future<void> logout() async {

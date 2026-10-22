@@ -20,7 +20,8 @@ const String onboardingCompletedKey = 'onboarding_completed';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   final router = GoRouter(
-    initialLocation: '/',
+    // Ne pas afficher directement l'onboarding au démarrage.
+    initialLocation: '/startup',
 
     redirect: (BuildContext context, GoRouterState state) async {
       final preferences = await SharedPreferences.getInstance();
@@ -30,54 +31,77 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 
       final location = state.matchedLocation;
 
+      final isStartup = location == '/startup';
       final isOnboarding = location == '/';
       final isLogin = location == '/login';
       final isRegister = location == '/register';
 
-      // L'onboarding doit être terminé avant d'accéder aux autres écrans.
-      if (!onboardingCompleted && !isOnboarding) {
-        return '/';
+      // Première utilisation : afficher l'onboarding.
+      if (!onboardingCompleted) {
+        return isOnboarding ? null : '/';
       }
 
-      // Après l'onboarding, afficher la connexion.
-      if (onboardingCompleted && isOnboarding) {
-        return '/login';
+      // Une fois l'onboarding terminé, ne plus l'afficher.
+      if (isOnboarding) {
+        return '/startup';
       }
 
-      // La connexion et l'inscription restent accessibles sans session.
-      if (isLogin || isRegister) {
-        return null;
-      }
-
+      // L'état de session est restauré par AuthController.
       final authState = ref.read(authControllerProvider);
 
-      // Ne pas rediriger pendant la restauration initiale de la session.
+      // Rester sur l'écran de démarrage pendant la restauration.
       if (authState.isLoading) {
-        return null;
+        return isStartup ? null : '/startup';
       }
 
       final auth = authState.asData?.value;
 
-      // Protéger tous les autres écrans.
-      if (auth == null) {
-        return '/login';
-      }
+      final role = auth?.role?.toUpperCase();
 
-      // Refuser les comptes inactifs ou non autorisés sur mobile.
-      final role = auth.role?.toUpperCase();
       final roleAutorise =
           role == 'CITOYEN' ||
-          (role == 'STRUCTURE' && auth.estResponsable == false);
+          (role == 'STRUCTURE' && auth?.estResponsable == false);
 
-      if (auth.estActif != true || !roleAutorise) {
+      final sessionValide =
+          auth != null && auth.estActif == true && roleAutorise;
+
+      // Session valide : accès direct à l'accueil.
+      if (sessionValide) {
+        if (isStartup || isLogin || isRegister) {
+          return '/home';
+        }
+
+        return null;
+      }
+
+      // Pas de session valide : afficher la connexion.
+      if (isStartup) {
         return '/login';
       }
 
-      return null;
+      // Les pages de connexion et d'inscription restent publiques.
+      if (isLogin || isRegister) {
+        return null;
+      }
+
+      // Toutes les autres pages nécessitent une session valide.
+      return '/login';
     },
 
     routes: [
-      // ONBOARDING
+      // DÉMARRAGE / RESTAURATION DE SESSION
+      GoRoute(
+        path: '/startup',
+        name: 'startup',
+        builder: (context, state) => const Scaffold(
+          backgroundColor: Colors.white,
+          body: Center(
+            child: CircularProgressIndicator(color: Color(0xFF3B5998)),
+          ),
+        ),
+      ),
+
+      // ONBOARDING : première utilisation uniquement
       GoRoute(
         path: '/',
         name: 'onboarding',
@@ -107,7 +131,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             context.go('/login');
           },
           onFinish: () {
-            context.go('/login');
+            context.go('/home');
           },
         ),
       ),
@@ -195,7 +219,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     ],
   );
 
-  // Réévaluer les redirections après chaque changement d'authentification.
+  // Actualiser le routeur lorsque l'état d'authentification change.
   ref.listen(authControllerProvider, (previous, next) {
     router.refresh();
   });

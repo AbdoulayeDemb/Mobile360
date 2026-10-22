@@ -271,47 +271,29 @@ class _RegisterFlowState extends ConsumerState<RegisterFlow> {
         motDePasse: _passwordController.text,
       );
 
-      final repository = ref.read(authRepositoryProvider);
-      final response = await repository.register(request: request);
+      // Inscrire le citoyen et enregistrer sa session.
+      await ref
+          .read(authControllerProvider.notifier)
+          .register(request: request);
 
       if (!mounted) return;
 
-      // Succès standard via la réponse
-      _showSuccessPopUp(
-        title: 'Compte créé avec succès !',
-        message: 'Votre compte a été créé avec succès, veuillez vous connecter pour pouvoir accéder à votre compte.',
-        onConfirm: () {
-          widget.onFinish?.call();
-        },
-      );
+      // L'inscription et l'authentification ont réussi.
+      widget.onFinish?.call();
     } catch (error) {
       if (!mounted) return;
 
       var message = error.toString();
+
       if (message.startsWith('Exception: ')) {
         message = message.substring('Exception: '.length);
       }
 
-      // VÉRIFICATION : Si le message du backend indique que la création est réussie
-      final lowerMsg = message.toLowerCase();
-      if (lowerMsg.contains('succès') ||
-          lowerMsg.contains('créé avec succès') ||
-          lowerMsg.contains('citoyen créé')) {
-        _showSuccessPopUp(
-          title: 'Compte créé avec succès !',
-          message: 'Votre compte a été créé avec succès, veuillez vous connecter pour pouvoir accéder à votre compte.',
-          onConfirm: () {
-            widget.onFinish?.call();
-          },
-        );
-      } else {
-        // Vraie erreur backend
-        _showErrorPopUp(
-          message.isEmpty
-              ? 'Une erreur est survenue pendant l’inscription.'
-              : message,
-        );
-      }
+      _showErrorPopUp(
+        message.isEmpty
+            ? "Une erreur est survenue pendant l'inscription."
+            : message,
+      );
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
