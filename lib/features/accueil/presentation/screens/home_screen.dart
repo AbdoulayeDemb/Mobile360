@@ -41,10 +41,103 @@ class HomeScreen extends ConsumerStatefulWidget {
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   static const int _dureeSos = 3;
 
+  // Carousel de la bannière
+  final PageController _bannerPageController = PageController();
+  Timer? _bannerTimer;
+  int _currentBannerIndex = 0;
+
+  final List<Map<String, String>> _banners = [
+    {
+      'image': 'assets/images/home_banner4.jpg',
+      'text':
+          'Eaux usées, accident, incendies, vols...\n'
+          'signalez ce que vous observez.',
+    },
+    {
+      'image': 'assets/images/home_banner5.jpg',
+      'text':
+          'Un signalement sur Alert’360, une prise\n'
+          'en charge rapide par la bonne structure.',
+    },
+    {
+      'image': 'assets/images/home_banner6.jpg',
+      'text':
+          'Signalez sur Alert’360, la bonne structure\n'
+          'intervient et votre problème est résolu.',
+    },
+  ];
+
+  // SOS
   Timer? _timerSos;
   int _secondesRestantes = _dureeSos;
   bool _maintienEnCours = false;
   bool _sosDeclenche = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _demarrerCarousel();
+  }
+
+  void _demarrerCarousel() {
+    _bannerTimer = Timer.periodic(const Duration(seconds: 4), (_) {
+      if (!mounted || !_bannerPageController.hasClients) return;
+
+      final nextPage = (_currentBannerIndex + 1) % _banners.length;
+
+      _bannerPageController.animateToPage(
+        nextPage,
+        duration: const Duration(milliseconds: 600),
+        curve: Curves.easeInOut,
+      );
+    });
+  }
+
+  Widget _buildBanner({required String image, required String text}) {
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        Image.asset(
+          image,
+          fit: BoxFit.cover,
+          filterQuality: FilterQuality.high,
+          isAntiAlias: true,
+          errorBuilder: (_, __, ___) => Container(
+            color: const Color(0xFFCBD5E1),
+            child: const Icon(Icons.image, size: 40, color: Colors.white),
+          ),
+        ),
+        Positioned(
+          bottom: 0,
+          left: 0,
+          right: 0,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.bottomCenter,
+                end: Alignment.topCenter,
+                colors: [
+                  Colors.black.withValues(alpha: 0.8),
+                  Colors.transparent,
+                ],
+              ),
+            ),
+            child: Text(
+              text,
+              style: const TextStyle(
+                fontFamily: 'Inter',
+                color: Colors.white,
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                height: 1.3,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 
   void _commencerMaintienSos() {
     if (_maintienEnCours || _sosDeclenche) return;
@@ -118,6 +211,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   @override
   void dispose() {
     _timerSos?.cancel();
+    _bannerTimer?.cancel();
+    _bannerPageController.dispose();
     super.dispose();
   }
 
@@ -188,9 +283,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               MaterialPageRoute<void>(builder: (_) => const UserGuideFlow()),
             );
           },
-          onDeconnexionTap: () {
+          onDeconnexionTap: () async {
             Navigator.of(context).pop();
-            // TODO : déconnecter l'utilisateur.
+            await ref.read(authControllerProvider.notifier).logout();
           },
         ),
       ),
@@ -205,17 +300,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final weatherAsync = ref.watch(weatherProvider);
     final citoyenIdAsync = ref.watch(currentCitoyenIdProvider);
 
-    // Actualiser automatiquement les signalements récents
-    // lorsqu'un nouveau signalement est créé avec succès.
+    // Actualiser les signalements après une nouvelle création.
     ref.listen<AsyncValue<Signalement?>>(creationSignalementProvider, (
       previous,
       next,
     ) {
       final nouveauSignalement = next.asData?.value;
-
       if (nouveauSignalement == null) return;
 
-      // Éviter une invalidation inutile si le résultat n'a pas changé.
       final ancienSignalement = previous?.asData?.value;
 
       if (ancienSignalement?.idSignalement ==
@@ -369,7 +461,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
                     const SizedBox(height: 20),
 
-                    // Bannière d'accueil.
+                    // Bannière d'accueil : carousel automatique.
                     ClipRRect(
                       borderRadius: BorderRadius.circular(20),
                       child: SizedBox(
@@ -378,48 +470,46 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         child: Stack(
                           fit: StackFit.expand,
                           children: [
-                            Image.asset(
-                              'assets/images/home_banner.png',
-                              fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) => Container(
-                                color: const Color(0xFFCBD5E1),
-                                child: const Icon(
-                                  Icons.image,
-                                  size: 40,
-                                  color: Colors.white,
-                                ),
-                              ),
+                            PageView.builder(
+                              controller: _bannerPageController,
+                              itemCount: _banners.length,
+                              onPageChanged: (index) {
+                                setState(() {
+                                  _currentBannerIndex = index;
+                                });
+                              },
+                              itemBuilder: (context, index) {
+                                return _buildBanner(
+                                  image: _banners[index]['image']!,
+                                  text: _banners[index]['text']!,
+                                );
+                              },
                             ),
+
+                            // Indicateurs de position.
                             Positioned(
-                              bottom: 0,
-                              left: 0,
-                              right: 0,
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 12,
-                                ),
-                                decoration: BoxDecoration(
-                                  gradient: LinearGradient(
-                                    begin: Alignment.bottomCenter,
-                                    end: Alignment.topCenter,
-                                    colors: [
-                                      Colors.black.withValues(alpha: 0.8),
-                                      Colors.transparent,
-                                    ],
-                                  ),
-                                ),
-                                child: const Text(
-                                  'Eaux usées, accident, incendies, vols...\n'
-                                  'signalez ce que vous observez',
-                                  style: TextStyle(
-                                    fontFamily: 'Inter',
-                                    color: Colors.white,
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w500,
-                                    height: 1.3,
-                                  ),
-                                ),
+                              bottom: 8,
+                              right: 14,
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: List.generate(_banners.length, (
+                                  index,
+                                ) {
+                                  final isActive = _currentBannerIndex == index;
+
+                                  return AnimatedContainer(
+                                    duration: const Duration(milliseconds: 300),
+                                    margin: const EdgeInsets.only(left: 5),
+                                    width: isActive ? 18 : 6,
+                                    height: 6,
+                                    decoration: BoxDecoration(
+                                      color: isActive
+                                          ? Colors.white
+                                          : Colors.white.withValues(alpha: 0.5),
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                  );
+                                }),
                               ),
                             ),
                           ],
@@ -676,7 +766,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
                     const SizedBox(height: 22),
 
-                    // Mes signalements récents : données réelles du citoyen.
+                    // Mes signalements récents.
                     _buildMesSignalementsSection(citoyenIdAsync),
 
                     const SizedBox(height: 20),
@@ -885,6 +975,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     });
 
                   final troisDerniers = signalementsRecents.take(3).toList();
+
                   return Column(
                     children: [
                       for (int i = 0; i < troisDerniers.length; i++) ...[
@@ -976,14 +1067,14 @@ class _SignalementRecentCard extends StatelessWidget {
   Color get _couleurStatut {
     switch (_statutNormalise) {
       case 'RESOLU':
-        return const Color(0xFF10B981); // Vert
+        return const Color(0xFF10B981);
       case 'EN_COURS':
-        return const Color(0xFFF59E0B); // Orange
+        return const Color(0xFFF59E0B);
       case 'REJETE':
-        return const Color(0xFFEF4444); // Rouge
+        return const Color(0xFFEF4444);
       case 'DECLARE':
       default:
-        return const Color(0xFF3B82F6); // Bleu
+        return const Color(0xFF3B82F6);
     }
   }
 
@@ -1015,6 +1106,7 @@ class _SignalementRecentCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final photoUrl = ApiConfig.construireUrl(signalement.photoAvantUrl ?? '');
+
     debugPrint(
       '[PHOTO SIGNALEMENT ${signalement.idSignalement}] '
       'URL reçue : "$photoUrl"',
@@ -1044,7 +1136,7 @@ class _SignalementRecentCard extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
             child: Row(
               children: [
-                // Photo du signalement
+                // Photo du signalement.
                 ClipRRect(
                   borderRadius: BorderRadius.circular(12),
                   child: SizedBox(
@@ -1084,7 +1176,7 @@ class _SignalementRecentCard extends StatelessWidget {
 
                 const SizedBox(width: 12),
 
-                // Informations du signalement
+                // Informations du signalement.
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1103,9 +1195,7 @@ class _SignalementRecentCard extends StatelessWidget {
                           color: AppColors.darkBlue,
                         ),
                       ),
-
                       const SizedBox(height: 4),
-
                       Text(
                         signalement.codeTrackingUnique?.trim().isNotEmpty ==
                                 true
@@ -1119,9 +1209,7 @@ class _SignalementRecentCard extends StatelessWidget {
                           color: AppColors.textSecondary,
                         ),
                       ),
-
                       const SizedBox(height: 7),
-
                       Row(
                         children: [
                           const Icon(
@@ -1150,7 +1238,7 @@ class _SignalementRecentCard extends StatelessWidget {
 
                 const SizedBox(width: 8),
 
-                // Badge de statut à droite
+                // Badge de statut.
                 Flexible(
                   flex: 0,
                   child: Container(
@@ -1179,7 +1267,6 @@ class _SignalementRecentCard extends StatelessWidget {
 
                 const SizedBox(width: 2),
 
-                // Flèche à l'extrémité droite
                 const Icon(
                   Icons.chevron_right_rounded,
                   size: 21,

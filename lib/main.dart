@@ -17,7 +17,7 @@ class MyApp extends ConsumerWidget {
     final router = ref.watch(appRouterProvider);
 
     return MaterialApp.router(
-      title: 'Alert360',
+      title: "Alert'360",
       debugShowCheckedModeBanner: false,
 
       // Thème clair.
