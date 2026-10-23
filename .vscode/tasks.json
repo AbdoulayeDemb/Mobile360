@@ -1,0 +1,14 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "adb reverse 8080",
+      "type": "shell",
+      "command": "$adb = \"$env:LOCALAPPDATA\\Android\\Sdk\\platform-tools\\adb.exe\"; & $adb devices | Select-String '\\tdevice$' | ForEach-Object { $id = ($_ -split '\\t')[0]; if ($id -notlike 'emulator-*') { & $adb -s $id reverse tcp:8080 tcp:8080; Write-Host \"reverse 8080 -> $id\" } }",
+      "options": {
+        "shell": { "executable": "powershell.exe", "args": ["-NoProfile", "-Command"] }
+      },
+      "problemMatcher": []
+    }
+  ]
+}
