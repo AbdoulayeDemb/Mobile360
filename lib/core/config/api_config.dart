@@ -1,17 +1,29 @@
+import 'package:flutter/foundation.dart';
+
 class ApiConfig {
   ApiConfig._();
 
-  /// Adresse par défaut pour le développement Web local.
-  static const String _defaultBaseUrl = 'http://localhost:8080';
+  /// Adresse imposée au lancement avec --dart-define=API_BASE_URL=...
+  static const String _baseUrlImposee = String.fromEnvironment('API_BASE_URL');
 
-  /// Adresse de l'API configurable au lancement avec --dart-define.
+  /// Adresse de l'API.
   ///
-  /// Web sur le même ordinateur : http://localhost:8080
-  /// Téléphone physique sur le même Wi-Fi : http://IP_DE_TON_PC:8080
-  static const String baseUrl = String.fromEnvironment(
-    'API_BASE_URL',
-    defaultValue: _defaultBaseUrl,
-  );
+  /// Web sur le même ordinateur : http://localhost:8080 (par défaut)
+  /// Émulateur Android : http://10.0.2.2:8080 (par défaut, = le PC hôte)
+  /// Téléphone physique sur le même Wi-Fi :
+  ///   --dart-define=API_BASE_URL=http://IP_DE_TON_PC:8080
+  static final String baseUrl = _resoudreBaseUrl();
+
+  static String _resoudreBaseUrl() {
+    if (_baseUrlImposee.isNotEmpty) return _baseUrlImposee;
+
+    // Sur l'émulateur Android, localhost désigne l'émulateur lui-même.
+    // if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+    //   return 'http://10.0.2.2:8080';
+    // }
+
+    return 'http://localhost:8080';
+  }
 
   static const Duration connectTimeout = Duration(seconds: 15);
   static const Duration receiveTimeout = Duration(seconds: 20);

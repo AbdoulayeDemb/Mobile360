@@ -15,8 +15,12 @@ class MenuScreen extends ConsumerWidget {
   final VoidCallback? onModeEmploiTap;
   final VoidCallback? onDeconnexionTap;
 
+  /// Libellé de l'entrée des signalements (« Mes missions » pour un agent).
+  final String titreSignalements;
+
   const MenuScreen({
     super.key,
+    this.titreSignalements = 'Mes signalements',
     this.onClose,
     this.onMonCompteTap,
     this.onMesSignalementsTap,
@@ -125,7 +129,7 @@ class MenuScreen extends ConsumerWidget {
                       _MenuItem(
                         icon: Icons.list_alt_rounded,
                         iconColor: const Color(0xFF072B61),
-                        title: 'Mes signalements',
+                        title: titreSignalements,
                         onTap: onMesSignalementsTap,
                       ),
                       _MenuItem(

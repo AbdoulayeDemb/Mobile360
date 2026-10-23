@@ -29,6 +29,9 @@ dependencies:
   just_audio: ^0.10.6
   video_player: ^2.14.1
   flutter_native_splash: ^2.4.8
+  flutter_map: ^8.3.2
+  latlong2: ^0.10.1
+  device_info_plus: ^13.3.0
 
 dev_dependencies:
   flutter_test:
