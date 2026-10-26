@@ -1,0 +1,41 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Émulateur Android",
+      "request": "launch",
+      "type": "dart",
+      "deviceId": "emulator-5554"
+    },
+    {
+      "name": "Téléphone TECNO KM4 (USB)",
+      "request": "launch",
+      "type": "dart",
+      "deviceId": "14880705BR022534",
+      "preLaunchTask": "adb reverse 8080",
+      "toolArgs": ["--dart-define=API_BASE_URL=http://localhost:8080"]
+    },
+    {
+      "name": "Téléphone TECNO CN6c (USB)",
+      "request": "launch",
+      "type": "dart",
+      "deviceId": "0826605000010453",
+      "preLaunchTask": "adb reverse 8080",
+      "toolArgs": ["--dart-define=API_BASE_URL=http://localhost:8080"]
+    },
+    {
+      "name": "Téléphone Samsung A03 (USB)",
+      "request": "launch",
+      "type": "dart",
+      "deviceId": "R9YT514QK7Y",
+      "preLaunchTask": "adb reverse 8080",
+      "toolArgs": ["--dart-define=API_BASE_URL=http://localhost:8080"]
+    },
+    {
+      "name": "Téléphone via Wi-Fi (sans USB)",
+      "request": "launch",
+      "type": "dart",
+      "toolArgs": ["--dart-define=API_BASE_URL=http://192.168.11.3:8080"]
+    }
+  ]
+}

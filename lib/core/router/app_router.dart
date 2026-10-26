@@ -1,4 +1,10 @@
 import 'package:alert360_mobile/features/actualites/presentation/screens/actualites_screen.dart';
+import 'package:alert360_mobile/features/agent_terrain/presentation/screens/agent_home_screen.dart';
+import 'package:alert360_mobile/features/agent_terrain/presentation/screens/agent_profil_screen.dart';
+import 'package:alert360_mobile/features/agent_terrain/presentation/screens/localisation_mission_screen.dart';
+import 'package:alert360_mobile/features/agent_terrain/presentation/screens/mission_detail_screen.dart';
+import 'package:alert360_mobile/features/agent_terrain/presentation/screens/missions_terrain_screen.dart';
+import 'package:alert360_mobile/features/agent_terrain/presentation/screens/rapport_intervention_screen.dart';
 import 'package:alert360_mobile/features/contenus_educatifs/presentation/screens/contenus_educatifs_screen.dart';
 import 'package:alert360_mobile/features/notifications/presentation/screens/notifications_screen.dart';
 import 'package:alert360_mobile/features/onboarding/presentation/screens/onboarding_flow.dart';
@@ -18,6 +24,15 @@ import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 const String onboardingCompletedKey = 'onboarding_completed';
+
+/// Écrans réservés aux citoyens.
+const Set<String> _routesCitoyen = {
+  '/home',
+  '/categories',
+  '/problem-details',
+  '/mes-signalements',
+  '/profil',
+};
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   final router = GoRouter(
@@ -50,6 +65,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       // L'état de session est restauré par AuthController.
       final authState = ref.read(authControllerProvider);
 
+      // Pendant une connexion ou une inscription, rester sur l'écran
+      // pour conserver le formulaire et afficher une éventuelle erreur.
+      if (authState.isLoading && (isLogin || isRegister)) {
+        return null;
+      }
+
       // Rester sur l'écran de démarrage pendant la restauration.
       if (authState.isLoading) {
         return isStartup ? null : '/startup';
@@ -66,10 +87,24 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       final sessionValide =
           auth != null && auth.estActif == true && roleAutorise;
 
-      // Session valide : accès direct à l'accueil.
+      // Session valide : accès direct à l'accueil du profil.
       if (sessionValide) {
+        final estAgent = role == 'STRUCTURE';
+        final accueil = estAgent ? '/agent/home' : '/home';
+        final isEspaceAgent = location.startsWith('/agent');
+
         if (isStartup || isLogin || isRegister) {
-          return '/home';
+          return accueil;
+        }
+
+        // L'agent n'accède pas aux écrans de signalement citoyen.
+        if (estAgent && _routesCitoyen.contains(location)) {
+          return accueil;
+        }
+
+        // Le citoyen n'accède pas à l'espace agent.
+        if (!estAgent && isEspaceAgent) {
+          return accueil;
         }
 
         return null;
@@ -227,6 +262,56 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             context.go('/home');
           },
         ),
+      ),
+
+      // ESPACE AGENT DE TERRAIN
+      GoRoute(
+        path: '/agent/home',
+        name: 'agent-home',
+        builder: (context, state) => const AgentHomeScreen(),
+      ),
+
+      // MISSIONS TERRAIN
+      GoRoute(
+        path: '/agent/missions',
+        name: 'agent-missions',
+        builder: (context, state) => const MissionsTerrainScreen(),
+        routes: [
+          // DÉTAIL D'UNE MISSION
+          GoRoute(
+            path: ':id',
+            name: 'agent-mission-detail',
+            builder: (context, state) => MissionDetailScreen(
+              idSignalement: int.parse(state.pathParameters['id']!),
+            ),
+            routes: [
+              // RAPPORT D'INTERVENTION
+              GoRoute(
+                path: 'rapport',
+                name: 'agent-mission-rapport',
+                builder: (context, state) => RapportInterventionScreen(
+                  idSignalement: int.parse(state.pathParameters['id']!),
+                ),
+              ),
+
+              // ITINÉRAIRE VERS LA MISSION
+              GoRoute(
+                path: 'localisation',
+                name: 'agent-mission-localisation',
+                builder: (context, state) => LocalisationMissionScreen(
+                  idSignalement: int.parse(state.pathParameters['id']!),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+
+      // PROFIL AGENT
+      GoRoute(
+        path: '/agent/profil',
+        name: 'agent-profil',
+        builder: (context, state) => const AgentProfilScreen(),
       ),
     ],
   );
