@@ -6,6 +6,7 @@ import 'package:alert360_mobile/features/agent_terrain/presentation/screens/miss
 import 'package:alert360_mobile/features/agent_terrain/presentation/screens/missions_terrain_screen.dart';
 import 'package:alert360_mobile/features/agent_terrain/presentation/screens/rapport_intervention_screen.dart';
 import 'package:alert360_mobile/features/contenus_educatifs/presentation/screens/contenus_educatifs_screen.dart';
+import 'package:alert360_mobile/features/notifications/presentation/screens/notifications_screen.dart';
 import 'package:alert360_mobile/features/onboarding/presentation/screens/onboarding_flow.dart';
 import 'package:alert360_mobile/features/auth/presentation/providers/auth_provider.dart';
 import 'package:alert360_mobile/features/auth/presentation/screens/login_screen.dart';
@@ -250,6 +251,17 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/contenus-educatifs',
         name: 'contenus-educatifs',
         builder: (context, state) => const GuideEducationScreen(),
+      ),
+
+      // NOTIFICATIONS
+      GoRoute(
+        path: '/notifications',
+        name: 'notifications',
+        builder: (context, state) => NotificationsScreen(
+          onBack: () {
+            context.go('/home');
+          },
+        ),
       ),
 
       // ESPACE AGENT DE TERRAIN

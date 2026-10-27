@@ -239,7 +239,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           },
           onNotificationsTap: () {
             Navigator.of(context).pop();
-            // TODO : ouvrir les notifications.
+
+            context.push('/notifications');
           },
           onAProposTap: () {
             Navigator.of(context).pop();

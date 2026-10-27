@@ -3,43 +3,41 @@ import 'package:flutter/foundation.dart';
 class ApiConfig {
   ApiConfig._();
 
-  /// Adresse imposée au lancement avec --dart-define=API_BASE_URL=...
-  static const String _baseUrlImposee = String.fromEnvironment('API_BASE_URL');
+  /// Adresse par défaut pour le développement local.
+  static const String _defaultBaseUrl = 'http://localhost:8080';
 
-  /// Adresse de l'API.
+  /// URL configurable au lancement avec --dart-define.
   ///
-  /// Web sur le même ordinateur : http://localhost:8080 (par défaut)
-  /// Émulateur Android : http://10.0.2.2:8080 (par défaut, = le PC hôte)
+  /// Développement Web sur le PC :
+  /// http://localhost:8080
+  ///
   /// Téléphone physique sur le même Wi-Fi :
-  ///   --dart-define=API_BASE_URL=http://IP_DE_TON_PC:8080
-  static final String baseUrl = _resoudreBaseUrl();
-
-  static String _resoudreBaseUrl() {
-    if (_baseUrlImposee.isNotEmpty) return _baseUrlImposee;
-
-    // Sur l'émulateur Android, localhost désigne l'émulateur lui-même.
-    // if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
-    //   return 'http://10.0.2.2:8080';
-    // }
-
-    return 'http://localhost:8080';
-  }
+  /// http://IP_DE_TON_PC:8080
+  ///
+  /// Production :
+  /// https://alert360-systeme-signalement-13.onrender.com
+  static const String baseUrl = String.fromEnvironment(
+    'API_BASE_URL',
+    defaultValue: _defaultBaseUrl,
+  );
 
   static const Duration connectTimeout = Duration(seconds: 15);
   static const Duration receiveTimeout = Duration(seconds: 20);
   static const Duration sendTimeout = Duration(seconds: 15);
 
-  /// Construit une URL complète à partir d'un chemin d'API ou de média.
+  /// Construit une URL complète à partir d'un chemin d'API
+  /// ou d'une URL de média.
   static String construireUrl(String chemin) {
-    final base = baseUrl.replaceAll(RegExp(r'/+$'), '');
+    final base = baseUrl.replaceFirst(RegExp(r'/+$'), '');
     final path = chemin.trim();
 
     if (path.isEmpty) return '';
 
     final uri = Uri.tryParse(path);
 
-    if (uri != null && uri.hasScheme) {
-      // Remplace localhost par l'adresse configurée pour les anciens médias.
+    // Si le chemin est déjà une URL absolue.
+    if (uri != null && uri.hasScheme && uri.hasAuthority) {
+      // Corrige les anciennes URL de médias locales.
       if (uri.host == 'localhost' || uri.host == '127.0.0.1') {
         final baseUri = Uri.parse(base);
 
@@ -52,15 +50,18 @@ class ApiConfig {
             .toString();
       }
 
-      return path;
+      // Conserve les URL absolues externes, notamment HTTPS.
+      return uri.toString();
     }
 
+    // Normalise les chemins relatifs.
     final pathNormalise = path.replaceFirst(RegExp(r'^/+'), '');
 
-    if (pathNormalise.startsWith('api/')) {
+    // Évite de doubler le préfixe api/.
+    if (pathNormalise == 'api' || pathNormalise.startsWith('api/')) {
       return '$base/$pathNormalise';
     }
 
-    return '$base/${pathNormalise}';
+    return '$base/$pathNormalise';
   }
 }
