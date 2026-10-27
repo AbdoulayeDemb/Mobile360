@@ -44,6 +44,16 @@ class ApiService {
     }
   }
 
+  static Future<dynamic> patch(String path, {Object? data}) async {
+    try {
+      final response = await _dio.patch<dynamic>(path, data: data);
+
+      return response.data;
+    } catch (error) {
+      throw ApiErrorHandler.handle(error);
+    }
+  }
+
   static Future<void> delete(String path) async {
     try {
       await _dio.delete<dynamic>(path);

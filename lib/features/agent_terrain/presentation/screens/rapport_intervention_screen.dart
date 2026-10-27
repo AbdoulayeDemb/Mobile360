@@ -410,8 +410,8 @@ class _FormulaireRapportState extends ConsumerState<_FormulaireRapport> {
         fond = const Color(0xFFFEF2F2);
       case EtatMission.enAttenteValidation:
         texte = 'Rapport ${mission.code} en attente de validation';
-        couleur = const Color(0xFF7C3AED);
-        fond = const Color(0xFFF3EEFF);
+        couleur = const Color(0xFF35527E);
+        fond = const Color(0xFFEAF2FF);
       case EtatMission.aTraiter:
       case EtatMission.enCours:
         texte = 'Clôture du signalement ${mission.code}';
