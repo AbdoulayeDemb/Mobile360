@@ -70,7 +70,7 @@ class MissionUi {
       case EtatMission.enCours:
         return const Color(0xFFF59E0B);
       case EtatMission.enAttenteValidation:
-        return const Color(0xFF8B5CF6);
+        return const Color(0xFF35527E);
       case EtatMission.resolue:
         return const Color(0xFF10B981);
       case EtatMission.rejetee:

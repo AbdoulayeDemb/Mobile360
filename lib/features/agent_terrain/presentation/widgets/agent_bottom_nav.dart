@@ -58,8 +58,8 @@ class AgentBottomNav extends StatelessWidget {
                 actif: currentIndex == 1,
                 onTap: () => _naviguer(context, 1),
                 child: const Icon(
-                  Icons.location_on_outlined,
-                  size: 32,
+                  Icons.assignment_rounded,
+                  size: 30,
                   color: AppColors.darkBlue,
                 ),
               ),

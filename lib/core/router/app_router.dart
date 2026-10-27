@@ -1,5 +1,6 @@
 import 'package:alert360_mobile/features/actualites/presentation/screens/actualites_screen.dart';
 import 'package:alert360_mobile/features/agent_terrain/presentation/screens/agent_home_screen.dart';
+import 'package:alert360_mobile/features/agent_terrain/presentation/screens/agent_notifications_screen.dart';
 import 'package:alert360_mobile/features/agent_terrain/presentation/screens/agent_profil_screen.dart';
 import 'package:alert360_mobile/features/agent_terrain/presentation/screens/localisation_mission_screen.dart';
 import 'package:alert360_mobile/features/agent_terrain/presentation/screens/mission_detail_screen.dart';
@@ -300,6 +301,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/agent/profil',
         name: 'agent-profil',
         builder: (context, state) => const AgentProfilScreen(),
+      ),
+
+      // NOTIFICATIONS DE DÉCISION DES PREUVES POUR L'AGENT
+      GoRoute(
+        path: '/agent/notifications',
+        name: 'agent-notifications',
+        builder: (context, state) => const AgentNotificationsScreen(),
       ),
     ],
   );

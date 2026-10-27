@@ -10,7 +10,7 @@ import '../widgets/agent_bottom_nav.dart';
 import '../widgets/mission_card.dart';
 import '../widgets/mission_ui.dart';
 
-enum _FiltreMission { toutes, urgent, enCours, resolus }
+enum _FiltreMission { toutes, enCours, resolus }
 
 class MissionsTerrainScreen extends ConsumerStatefulWidget {
   const MissionsTerrainScreen({super.key});
@@ -25,19 +25,14 @@ class _MissionsTerrainScreenState extends ConsumerState<MissionsTerrainScreen> {
 
   static const Map<_FiltreMission, String> _libellesFiltres = {
     _FiltreMission.toutes: 'Toutes',
-    _FiltreMission.urgent: 'Urgent',
     _FiltreMission.enCours: 'En cours',
-    _FiltreMission.resolus: 'Resolus',
+    _FiltreMission.resolus: 'Résolus',
   };
 
   List<Mission> _filtrer(List<Mission> missions) {
     switch (_filtre) {
       case _FiltreMission.toutes:
         return missions;
-      case _FiltreMission.urgent:
-        return missions
-            .where((mission) => mission.estUrgente && !mission.estTerminee)
-            .toList();
       case _FiltreMission.enCours:
         return missions.where((mission) => !mission.estTerminee).toList();
       case _FiltreMission.resolus:

@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/theme/app_colors.dart';
-import '../../../about/presentation/screens/about_screen.dart';
 import '../../../auth/data/models/utilisateur.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../providers/mission_provider.dart';
@@ -80,67 +79,6 @@ class _AgentProfilScreenState extends ConsumerState<AgentProfilScreen> {
           'responsable de votre structure. Contactez-le pour toute '
           'modification ou suppression.',
       icone: Icons.admin_panel_settings_outlined,
-    );
-  }
-
-  void _afficherInformationsPersonnelles(Utilisateur? profil) {
-    final lignes = <(IconData, String, String?)>[
-      (Icons.person_outline, 'Nom', profil?.nom),
-      (Icons.badge_outlined, 'Prénom', profil?.prenom),
-      (Icons.phone_outlined, 'Téléphone', profil?.telephone),
-      (Icons.email_outlined, 'Email', profil?.email),
-      (Icons.qr_code_2_rounded, 'Matricule', profil?.matriculeAgent),
-      (Icons.apartment_rounded, 'Structure', profil?.nomStructure),
-    ];
-
-    showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: Colors.white,
-      showDragHandle: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (_) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 0, 24, 20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Informations personnelles',
-                style: TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-              const SizedBox(height: 8),
-              for (final (icone, titre, valeur) in lignes)
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: Icon(icone, color: AppColors.primaryBlue),
-                  title: Text(
-                    titre,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                  subtitle: Text(
-                    valeur == null || valeur.trim().isEmpty
-                        ? 'Non renseigné'
-                        : valeur,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textPrimary,
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 
@@ -227,9 +165,10 @@ class _AgentProfilScreenState extends ConsumerState<AgentProfilScreen> {
 
     final prenom = profil?.prenom ?? auth?.prenom;
     final nom = profil?.nom ?? auth?.nom;
+    final estActif = profil?.estActif ?? auth?.estActif ?? false;
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: const Color(0xFFF6F8FC),
       body: SafeArea(
         child: Column(
           children: [
@@ -240,138 +179,55 @@ class _AgentProfilScreenState extends ConsumerState<AgentProfilScreen> {
             ),
             Expanded(
               child: ListView(
-                padding: const EdgeInsets.fromLTRB(24, 56, 24, 24),
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
                 children: [
-                  // Avatar avec initiales.
-                  Center(
-                    child: Stack(
-                      clipBehavior: Clip.none,
-                      children: [
-                        Container(
-                          width: 116,
-                          height: 116,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: const Color(0xFFF8FAFC),
-                            border: Border.all(color: const Color(0xFFCBD5E1)),
-                          ),
-                          alignment: Alignment.center,
-                          child: Text(
-                            MissionUi.initiales(prenom, nom),
-                            style: const TextStyle(
-                              fontFamily: 'Inter',
-                              fontSize: 32,
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.darkBlue,
-                            ),
-                          ),
-                        ),
-                        Positioned(
-                          right: -4,
-                          bottom: 16,
-                          child: Container(
-                            width: 38,
-                            height: 38,
-                            decoration: BoxDecoration(
-                              color: AppColors.darkBlue,
-                              shape: BoxShape.circle,
-                              border: Border.all(color: Colors.white, width: 2),
-                            ),
-                            child: const Icon(
-                              Icons.camera_alt_rounded,
-                              size: 18,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
+                  _carteIdentite(prenom, nom, estActif),
+                  const SizedBox(height: 24),
+                  _titreSection('Informations personnelles'),
+                  const SizedBox(height: 12),
+                  _carteInformations(profil),
+                  const SizedBox(height: 24),
+                  _titreSection('Compte et sécurité'),
+                  const SizedBox(height: 12),
+                  _elementAction(
+                    icone: Icons.person_outline,
+                    titre: 'Modifier mon profil',
+                    sousTitre:
+                        'Les informations de votre compte sont gérées par '
+                        'votre structure.',
+                    onTap: _compteGereParResponsable,
                   ),
-                  const SizedBox(height: 20),
-                  Text(
-                    [prenom, nom].whereType<String>().join(' ').trim(),
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontFamily: 'Inter',
-                      fontSize: 22,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.darkBlue,
-                    ),
-                  ),
-                  if (profil?.nomStructure != null) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      'Agent de terrain - ${profil!.nomStructure}',
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        fontFamily: 'Inter',
-                        fontSize: 12,
-                        color: MissionUi.texteGris,
-                      ),
-                    ),
-                  ],
-                  const SizedBox(height: 14),
-                  Center(
-                    child: FilledButton(
-                      onPressed: _compteGereParResponsable,
-                      style: FilledButton.styleFrom(
-                        backgroundColor: const Color(0xFFE8EBF2),
-                        foregroundColor: const Color(0xFF1D4E89),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 34,
-                          vertical: 12,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                      ),
-                      child: const Text(
-                        'Modifier le profil',
-                        style: TextStyle(
-                          fontFamily: 'Inter',
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 18),
-
-                  _titreSection('COMPTE'),
-                  _groupe([
-                    _ligne(
-                      icone: Icons.person_outline_rounded,
-                      titre: 'Informations personnelles',
-                      onTap: () => _afficherInformationsPersonnelles(profil),
-                    ),
-                    _ligne(
-                      icone: Icons.info_outline_rounded,
-                      titre: 'À propos de nous',
-                      onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) => const AboutScreen(),
-                        ),
-                      ),
-                    ),
-                  ]),
-                  const SizedBox(height: 18),
-
-                  _titreSection('CONNEXION'),
-                  _groupe([
-                    _ligne(
-                      icone: Icons.delete_outline_rounded,
-                      titre: 'Supprimer mon compte',
-                      onTap: _compteGereParResponsable,
-                    ),
-                    _ligne(
-                      icone: Icons.logout_rounded,
-                      titre: _deconnexionEnCours
+                  const SizedBox(height: 10),
+                  OutlinedButton.icon(
+                    onPressed: _deconnexionEnCours
+                        ? null
+                        : _confirmerDeconnexion,
+                    icon: _deconnexionEnCours
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.logout, color: Colors.red),
+                    label: Text(
+                      _deconnexionEnCours
                           ? 'Déconnexion en cours...'
-                          : 'Déconnexion',
-                      couleur: const Color(0xFFB91C1C),
-                      onTap: _confirmerDeconnexion,
+                          : 'Se déconnecter',
+                      style: const TextStyle(
+                        color: Colors.red,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
-                  ]),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      side: BorderSide(
+                        color: Colors.red.withValues(alpha: 0.35),
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -382,69 +238,240 @@ class _AgentProfilScreenState extends ConsumerState<AgentProfilScreen> {
     );
   }
 
-  Widget _titreSection(String titre) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Text(
-        titre,
-        style: const TextStyle(
-          fontFamily: 'Inter',
-          fontSize: 13,
-          color: AppColors.textSecondary,
-        ),
-      ),
-    );
-  }
+  Widget _carteIdentite(String? prenom, String? nom, bool estActif) {
+    final nomComplet = [
+      prenom,
+      nom,
+    ].whereType<String>().where((valeur) => valeur.trim().isNotEmpty).join(' ');
 
-  Widget _groupe(List<Widget> lignes) {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 6),
+      padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
-        color: const Color(0xFFFAFAFA),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFCBD5E1)),
+        gradient: const LinearGradient(
+          colors: [AppColors.primaryBlue, AppColors.darkBlue],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(22),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.darkBlue.withValues(alpha: 0.16),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
+          ),
+        ],
       ),
-      child: Column(children: lignes),
-    );
-  }
-
-  Widget _ligne({
-    required IconData icone,
-    required String titre,
-    required VoidCallback onTap,
-    Color couleur = AppColors.textSecondary,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-        child: Row(
-          children: [
-            Icon(
-              icone,
-              size: 26,
-              color: couleur == AppColors.textSecondary
-                  ? AppColors.darkBlue
-                  : couleur,
-            ),
-            const SizedBox(width: 18),
-            Expanded(
-              child: Text(
-                titre,
-                style: TextStyle(
-                  fontFamily: 'Inter',
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                  color: couleur,
-                ),
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 32,
+            backgroundColor: Colors.white.withValues(alpha: 0.18),
+            child: Text(
+              MissionUi.initiales(prenom, nom),
+              style: const TextStyle(
+                fontFamily: 'Inter',
+                fontSize: 24,
+                fontWeight: FontWeight.w700,
+                color: Colors.white,
               ),
             ),
-            const Icon(
-              Icons.chevron_right_rounded,
-              size: 26,
-              color: Color(0xFF64748B),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  nomComplet.isEmpty ? 'Mon compte' : nomComplet,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'AGENT DE TERRAIN',
+                  style: TextStyle(color: Colors.white.withValues(alpha: 0.85)),
+                ),
+                const SizedBox(height: 10),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 5,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    estActif ? 'Compte actif' : 'Compte inactif',
+                    style: const TextStyle(color: Colors.white, fontSize: 12),
+                  ),
+                ),
+              ],
             ),
-          ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _titreSection(String titre) {
+    return Text(
+      titre,
+      style: const TextStyle(
+        fontSize: 17,
+        fontWeight: FontWeight.bold,
+        color: AppColors.textPrimary,
+      ),
+    );
+  }
+
+  Widget _carteInformations(Utilisateur? profil) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFE8EDF5)),
+      ),
+      child: Column(
+        children: [
+          _ligneInformation(Icons.person_outline, 'Nom', profil?.nom),
+          _ligneInformation(Icons.badge_outlined, 'Prénom', profil?.prenom),
+          _ligneInformation(
+            Icons.phone_outlined,
+            'Téléphone',
+            profil?.telephone,
+          ),
+          _ligneInformation(Icons.email_outlined, 'Email', profil?.email),
+          _ligneInformation(
+            Icons.qr_code_2_rounded,
+            'Matricule',
+            profil?.matriculeAgent,
+          ),
+          _ligneInformation(
+            Icons.apartment_rounded,
+            'Structure',
+            profil?.nomStructure,
+            derniere: true,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _ligneInformation(
+    IconData icone,
+    String titre,
+    String? valeur, {
+    bool derniere = false,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 13),
+      decoration: BoxDecoration(
+        border: derniere
+            ? null
+            : const Border(bottom: BorderSide(color: Color(0xFFF0F2F6))),
+      ),
+      child: Row(
+        children: [
+          Icon(icone, color: AppColors.primaryBlue, size: 22),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  titre,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  valeur == null || valeur.trim().isEmpty
+                      ? 'Non renseigné'
+                      : valeur,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _elementAction({
+    required IconData icone,
+    required String titre,
+    required String sousTitre,
+    required VoidCallback onTap,
+  }) {
+    return Card(
+      color: Colors.white,
+      surfaceTintColor: Colors.transparent,
+      elevation: 0,
+      margin: const EdgeInsets.only(bottom: 10),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: const BorderSide(color: Color(0xFFE2E8F0)),
+      ),
+      child: InkWell(
+        onTap: _deconnexionEnCours ? null : onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
+          child: Row(
+            children: [
+              Container(
+                width: 46,
+                height: 46,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE8F0FF),
+                  borderRadius: BorderRadius.circular(13),
+                ),
+                child: Icon(icone, color: AppColors.primaryBlue, size: 24),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      titre,
+                      style: const TextStyle(
+                        color: Color(0xFF1E293B),
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 5),
+                    Text(
+                      sousTitre,
+                      style: const TextStyle(
+                        color: Color(0xFF64748B),
+                        fontSize: 12,
+                        height: 1.4,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              const Icon(
+                Icons.chevron_right_rounded,
+                color: Color(0xFF64748B),
+                size: 24,
+              ),
+            ],
+          ),
         ),
       ),
     );
