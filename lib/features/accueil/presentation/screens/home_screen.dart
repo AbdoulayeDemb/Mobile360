@@ -67,12 +67,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     },
   ];
 
-  // SOS
-  Timer? _timerSos;
-  int _secondesRestantes = _dureeSos;
-  bool _maintienEnCours = false;
-  bool _sosDeclenche = false;
-
   @override
   void initState() {
     super.initState();
@@ -139,78 +133,114 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  void _commencerMaintienSos() {
-    if (_maintienEnCours || _sosDeclenche) return;
-
-    setState(() {
-      _maintienEnCours = true;
-      _secondesRestantes = _dureeSos;
-    });
-
-    _timerSos = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (!mounted) {
-        timer.cancel();
-        return;
-      }
-
-      if (!_maintienEnCours) {
-        timer.cancel();
-        return;
-      }
-
-      if (_secondesRestantes <= 1) {
-        timer.cancel();
-
-        setState(() {
-          _secondesRestantes = 0;
-          _maintienEnCours = false;
-          _sosDeclenche = true;
-        });
-
-        _ouvrirUrgencesProximite();
-        return;
-      }
-
-      setState(() {
-        _secondesRestantes--;
-      });
-    });
-  }
-
-  void _annulerMaintienSos() {
-    if (!_maintienEnCours || _sosDeclenche) return;
-
-    _timerSos?.cancel();
-
-    setState(() {
-      _maintienEnCours = false;
-      _secondesRestantes = _dureeSos;
-    });
-  }
-
   void _ouvrirUrgencesProximite() {
     if (!mounted) return;
 
-    Navigator.of(context)
-        .push(
-          MaterialPageRoute<void>(
-            builder: (_) => const UrgencesProximiteScreen(),
-          ),
-        )
-        .then((_) {
-          if (!mounted) return;
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(builder: (_) => const UrgencesProximiteScreen()),
+    );
+  }
 
-          setState(() {
-            _sosDeclenche = false;
-            _maintienEnCours = false;
-            _secondesRestantes = _dureeSos;
-          });
-        });
+  Future<void> _confirmerSos() async {
+    final confirmation = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
+          icon: const Icon(
+            Icons.warning_amber_rounded,
+            color: Color(0xFFFF7A00),
+            size: 52,
+          ),
+          title: const Text(
+            'Confirmer l’urgence',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontFamily: 'Poppins',
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: AppColors.darkBlue,
+            ),
+          ),
+          content: const Text(
+            'Êtes-vous sûr de vouloir déclencher une alerte SOS ? '
+            'Vous pourrez consulter les services de secours à proximité.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontFamily: 'Inter',
+              fontSize: 14,
+              height: 1.5,
+              color: AppColors.textSecondary,
+            ),
+          ),
+          actionsAlignment: MainAxisAlignment.center,
+          actionsPadding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+          actions: [
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () {
+                      Navigator.of(dialogContext).pop(false);
+                    },
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 13),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      side: const BorderSide(color: Color(0xFFCBD5E1)),
+                    ),
+                    child: const Text(
+                      'Annuler',
+                      style: TextStyle(
+                        fontFamily: 'Inter',
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.darkBlue,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.of(dialogContext).pop(true);
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFFF7A00),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 13),
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: const Text(
+                      'Confirmer',
+                      style: TextStyle(
+                        fontFamily: 'Inter',
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        );
+      },
+    );
+
+    if (!mounted || confirmation != true) return;
+
+    _ouvrirUrgencesProximite();
   }
 
   @override
   void dispose() {
-    _timerSos?.cancel();
     _bannerTimer?.cancel();
     _bannerPageController.dispose();
     super.dispose();
@@ -651,18 +681,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     const SizedBox(height: 16),
 
                     // SOS URGENCE DIRECT.
-                    Listener(
-                      behavior: HitTestBehavior.opaque,
-                      onPointerDown: (_) => _commencerMaintienSos(),
-                      onPointerUp: (_) => _annulerMaintienSos(),
-                      onPointerCancel: (_) => _annulerMaintienSos(),
+                    InkWell(
+                      onTap: _confirmerSos,
+                      borderRadius: BorderRadius.circular(20),
                       child: Container(
                         width: double.infinity,
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          color: _maintienEnCours
-                              ? const Color(0xFFFF0000)
-                              : const Color(0xFFFF7A00),
+                          color: const Color(0xFFFF7A00),
                           borderRadius: BorderRadius.circular(20),
                           boxShadow: [
                             BoxShadow(
@@ -689,11 +715,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                               ),
                             ),
                             const SizedBox(width: 14),
-                            Expanded(
+                            const Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  const Text(
+                                  Text(
                                     'SOS URGENCE DIRECT',
                                     style: TextStyle(
                                       fontFamily: 'Poppins',
@@ -703,12 +729,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                       letterSpacing: 0.5,
                                     ),
                                   ),
-                                  const SizedBox(height: 4),
+                                  SizedBox(height: 4),
                                   Text(
-                                    _maintienEnCours
-                                        ? 'Maintenez encore $_secondesRestantes seconde(s)...'
-                                        : 'Maintenez 3 secondes pour trouver les secours',
-                                    style: const TextStyle(
+                                    'Appuyez pour confirmer votre demande de secours: Police, Pompiers, Ambulance...',
+                                    style: TextStyle(
                                       fontFamily: 'Inter',
                                       fontSize: 11,
                                       color: Colors.white70,
@@ -717,48 +741,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                 ],
                               ),
                             ),
-                            const SizedBox(width: 10),
-                            Container(
-                              height: 50,
-                              width: 58,
-                              padding: const EdgeInsets.all(6),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.2),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  SizedBox(
-                                    height: 22,
-                                    width: 22,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 3,
-                                      value: _maintienEnCours
-                                          ? (_dureeSos - _secondesRestantes) /
-                                                _dureeSos
-                                          : 0,
-                                      backgroundColor: Colors.white30,
-                                      valueColor:
-                                          const AlwaysStoppedAnimation<Color>(
-                                            Colors.white,
-                                          ),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    _maintienEnCours
-                                        ? '${_secondesRestantes}s'
-                                        : '3 sec',
-                                    style: const TextStyle(
-                                      fontFamily: 'Inter',
-                                      fontSize: 9,
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ],
-                              ),
+                            const SizedBox(width: 8),
+                            const Icon(
+                              Icons.arrow_forward_ios_rounded,
+                              color: Colors.white,
+                              size: 20,
                             ),
                           ],
                         ),

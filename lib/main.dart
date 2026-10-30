@@ -11,7 +11,7 @@ void main() {
 class MyApp extends ConsumerWidget {
   const MyApp({super.key});
 
-  @override
+  @override 
   Widget build(BuildContext context, WidgetRef ref) {
     // Récupération du routeur géré par Riverpod.
     final router = ref.watch(appRouterProvider);

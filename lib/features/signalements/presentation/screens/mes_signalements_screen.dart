@@ -359,16 +359,6 @@ class _MesSignalementsScreenState extends ConsumerState<MesSignalementsScreen> {
                       ],
                     ),
                   ),
-                  IconButton(
-                    tooltip: 'Actualiser',
-                    onPressed: _isLoading
-                        ? null
-                        : () => _chargerSignalements(actualiser: true),
-                    icon: const Icon(
-                      Icons.refresh_rounded,
-                      color: AppColors.darkBlue,
-                    ),
-                  ),
                 ],
               ),
             ),
