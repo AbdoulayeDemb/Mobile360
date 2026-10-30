@@ -233,14 +233,14 @@ class _RegisterFlowState extends ConsumerState<RegisterFlow> {
     return null;
   }
 
-  String? _emailValidator(String? value) {
-    final email = value?.trim() ?? '';
-    if (email.isEmpty) return null;
-    if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(email)) {
-      return 'Veuillez entrer une adresse email valide.';
-    }
-    return null;
-  }
+  // String? _emailValidator(String? value) {
+  //   final email = value?.trim() ?? '';
+  //   if (email.isEmpty) return null;
+  //   if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(email)) {
+  //     return 'Veuillez entrer une adresse email valide.';
+  //   }
+  //   return null;
+  // }
 
   void _goToNextStep() {
     if (_isLoading) return;
@@ -396,7 +396,7 @@ class _RegisterFlowState extends ConsumerState<RegisterFlow> {
                     hintText: 'Entrez votre email',
                     icon: Icons.email_outlined,
                     keyboardType: TextInputType.emailAddress,
-                    validator: _emailValidator,
+                    // validator: _emailValidator,
                   ),
 
                   const SizedBox(height: 16),
