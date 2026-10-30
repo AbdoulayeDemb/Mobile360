@@ -11,12 +11,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:http/http.dart' as http;
-import 'package:image_picker/image_picker.dart';
 import 'package:record/record.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:path_provider/path_provider.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/presentation/screens/camera_capture_screen.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../data/models/signalement_request.dart';
 import '../../data/repositories/signalement_repository.dart';
@@ -47,7 +47,6 @@ class ProblemDetailsScreen extends ConsumerStatefulWidget {
 class _ProblemDetailsScreenState extends ConsumerState<ProblemDetailsScreen> {
   final TextEditingController _descriptionController = TextEditingController();
 
-  final ImagePicker _imagePicker = ImagePicker();
   final AudioRecorder _audioRecorder = AudioRecorder();
   final AudioPlayer _audioPlayer = AudioPlayer();
 
@@ -255,17 +254,15 @@ class _ProblemDetailsScreenState extends ConsumerState<ProblemDetailsScreen> {
     setState(() => _isTakingPhoto = true);
 
     try {
-      final XFile? image = await _imagePicker.pickImage(
-        source: ImageSource.camera,
-        preferredCameraDevice: CameraDevice.rear,
-        imageQuality: 85,
+      final imagePath = await Navigator.of(context).push<String>(
+        MaterialPageRoute<String>(builder: (_) => const CameraCaptureScreen()),
       );
 
       if (!mounted) return;
 
-      if (image != null) {
+      if (imagePath != null) {
         setState(() {
-          _photoFile = File(image.path);
+          _photoFile = File(imagePath);
         });
       }
     } catch (e) {

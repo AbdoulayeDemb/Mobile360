@@ -3,9 +3,9 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:image_picker/image_picker.dart';
 
 import '../../../../core/network/media_url_helper.dart';
+import '../../../../core/presentation/screens/camera_capture_screen.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../data/models/mission.dart';
 import '../../data/models/preuve_resolution.dart';
@@ -61,7 +61,6 @@ class _FormulaireRapport extends ConsumerStatefulWidget {
 }
 
 class _FormulaireRapportState extends ConsumerState<_FormulaireRapport> {
-  final ImagePicker _imagePicker = ImagePicker();
   final TextEditingController _rapportController = TextEditingController();
 
   late StatutPropose _statut;
@@ -93,20 +92,19 @@ class _FormulaireRapportState extends ConsumerState<_FormulaireRapport> {
 
   Future<void> _prendrePhoto() async {
     try {
-      final image = await _imagePicker.pickImage(
-        source: ImageSource.camera,
-        preferredCameraDevice: CameraDevice.rear,
-        imageQuality: 85,
+      final imagePath = await Navigator.of(context).push<String>(
+        MaterialPageRoute<String>(builder: (_) => const CameraCaptureScreen()),
       );
 
-      if (image == null || !mounted) return;
+      if (imagePath == null || !mounted) return;
 
-      setState(() => _photo = File(image.path));
+      setState(() => _photo = File(imagePath));
     } catch (e) {
       debugPrint('Erreur caméra : $e');
       _afficherPopup(
         titre: 'Caméra indisponible',
-        message: 'Autorisez l’accès à la caméra pour photographier la réparation.',
+        message:
+            'Autorisez l’accès à la caméra pour photographier la réparation.',
         erreur: true,
       );
     }
