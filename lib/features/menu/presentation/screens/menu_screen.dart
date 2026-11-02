@@ -7,6 +7,8 @@ class MenuScreen extends ConsumerWidget {
   final VoidCallback? onClose;
   final VoidCallback? onMonCompteTap;
   final VoidCallback? onMesSignalementsTap;
+  final VoidCallback? onPreuveSignalementTap;
+  final bool afficherPreuvesResolution;
   final VoidCallback? onActualiteTap;
   final VoidCallback? onApprentissageTap;
   final VoidCallback? onNotificationsTap;
@@ -24,6 +26,8 @@ class MenuScreen extends ConsumerWidget {
     this.onClose,
     this.onMonCompteTap,
     this.onMesSignalementsTap,
+    this.onPreuveSignalementTap,
+    this.afficherPreuvesResolution = false,
     this.onActualiteTap,
     this.onApprentissageTap,
     this.onNotificationsTap,
@@ -132,6 +136,13 @@ class MenuScreen extends ConsumerWidget {
                         title: titreSignalements,
                         onTap: onMesSignalementsTap,
                       ),
+                      if (afficherPreuvesResolution)
+                        _MenuItem(
+                          icon: Icons.fact_check_rounded,
+                          iconColor: const Color(0xFF072B61),
+                          title: 'Preuves de résolution',
+                          onTap: onPreuveSignalementTap,
+                        ),
                       _MenuItem(
                         icon: Icons.campaign_rounded,
                         iconColor: const Color(0xFF072B61),

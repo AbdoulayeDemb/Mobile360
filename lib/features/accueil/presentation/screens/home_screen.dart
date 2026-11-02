@@ -250,6 +250,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => MenuScreen(
+          afficherPreuvesResolution: true,
           onClose: () => Navigator.of(context).pop(),
           onMonCompteTap: () {
             Navigator.of(context).pop();
@@ -258,6 +259,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           onMesSignalementsTap: () {
             Navigator.of(context).pop();
             context.push('/mes-signalements');
+          },
+          onPreuveSignalementTap: () {
+            Navigator.of(context).pop();
+            context.push('/preuves-resolution');
           },
           onActualiteTap: () {
             Navigator.of(context).pop();

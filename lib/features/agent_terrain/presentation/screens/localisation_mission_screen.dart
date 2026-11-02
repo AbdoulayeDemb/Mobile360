@@ -6,7 +6,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../data/models/itineraire.dart';
@@ -174,16 +173,6 @@ class _CarteGuidageState extends ConsumerState<_CarteGuidage> {
     );
   }
 
-  Future<void> _ouvrirApplication(Uri uri) async {
-    final ouvert = await launchUrl(uri, mode: LaunchMode.externalApplication);
-
-    if (!ouvert && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Impossible d’ouvrir l’application.')),
-      );
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final mission = widget.mission;
@@ -315,20 +304,6 @@ class _CarteGuidageState extends ConsumerState<_CarteGuidage> {
             erreur: _erreurPosition,
             onArrive: () =>
                 context.push('/agent/missions/${mission.id}/rapport'),
-            onGoogleMaps: () => _ouvrirApplication(
-              Uri.https('www.google.com', '/maps/dir/', {
-                'api': '1',
-                'destination':
-                    '${_destination.latitude},${_destination.longitude}',
-                'travelmode': 'driving',
-              }),
-            ),
-            onWaze: () => _ouvrirApplication(
-              Uri.https('waze.com', '/ul', {
-                'll': '${_destination.latitude},${_destination.longitude}',
-                'navigate': 'yes',
-              }),
-            ),
           ),
         ),
       ],
@@ -341,16 +316,12 @@ class _CarteInstructions extends StatelessWidget {
   final bool calculEnCours;
   final String? erreur;
   final VoidCallback onArrive;
-  final VoidCallback onGoogleMaps;
-  final VoidCallback onWaze;
 
   const _CarteInstructions({
     required this.itineraire,
     required this.calculEnCours,
     required this.erreur,
     required this.onArrive,
-    required this.onGoogleMaps,
-    required this.onWaze,
   });
 
   @override
@@ -478,62 +449,10 @@ class _CarteInstructions extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 const Divider(height: 1, color: Color(0xFFF1F5F9)),
-                const SizedBox(height: 6),
-                Row(
-                  children: [
-                    const Text(
-                      'Ouvrir dans : ',
-                      style: TextStyle(
-                        fontFamily: 'Inter',
-                        fontSize: 10,
-                        color: MissionUi.texteGris,
-                      ),
-                    ),
-                    _LienExterne(libelle: 'Google Maps', onTap: onGoogleMaps),
-                    const SizedBox(width: 10),
-                    _LienExterne(libelle: 'Waze', onTap: onWaze),
-                  ],
-                ),
               ],
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _LienExterne extends StatelessWidget {
-  final String libelle;
-  final VoidCallback onTap;
-
-  const _LienExterne({required this.libelle, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 4),
-        child: Row(
-          children: [
-            Text(
-              libelle,
-              style: const TextStyle(
-                fontFamily: 'Inter',
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-                color: MissionUi.bleuLien,
-              ),
-            ),
-            const SizedBox(width: 2),
-            const Icon(
-              Icons.north_east_rounded,
-              size: 11,
-              color: MissionUi.bleuLien,
-            ),
-          ],
-        ),
       ),
     );
   }
