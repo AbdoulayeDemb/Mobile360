@@ -16,6 +16,7 @@ import 'package:alert360_mobile/features/accueil/presentation/screens/home_scree
 import 'package:alert360_mobile/features/profil/presentation/screens/mon_profil_screen.dart';
 import 'package:alert360_mobile/features/signalements/presentation/screens/categories_selection_screen.dart';
 import 'package:alert360_mobile/features/signalements/presentation/screens/mes_signalements_screen.dart';
+import 'package:alert360_mobile/features/signalements/presentation/screens/preuves_resolution_screen.dart';
 import 'package:alert360_mobile/features/signalements/presentation/screens/problem_details_screen.dart';
 import 'package:alert360_mobile/features/signalements/data/models/categorie.dart';
 
@@ -32,6 +33,7 @@ const Set<String> _routesCitoyen = {
   '/categories',
   '/problem-details',
   '/mes-signalements',
+  '/preuves-resolution',
   '/profil',
 };
 
@@ -227,6 +229,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             context.go('/home');
           },
         ),
+      ),
+
+      // PREUVES DES INTERVENTIONS RÉSOLUES
+      GoRoute(
+        path: '/preuves-resolution',
+        name: 'preuves-resolution',
+        builder: (context, state) => const PreuvesResolutionScreen(),
       ),
 
       // MON PROFIL
